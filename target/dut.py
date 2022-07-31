@@ -4,41 +4,33 @@ from time import sleep
 import sys # for exit
 import socket
 import subprocess
-import json
-from datetime import datetime, timedelta
-
-# configure socket and connect to server  
-clientSocket = socket.socket()  
-#host = socket.gethostname()  
-#port = 25000  
-host = "127.0.0.1"  # Standard loopback interface address (localhost)
-port = 65432  # Port to listen on (non-privileged ports are > 1023)
-
+import pickle
+from datetime import datetime, timedelta 
 
 class Fsm(object):
 
-    states = ['state_wait', 'state_execute', 'state_error']
-    first_run = True
-    dmesg_length = 0
     def __init__(self, run_command):
+        self.states = ['state_wait', 'state_execute', 'state_error']
+        self.first_run = True
+        self.dmesg_length = 0
         self.__run_command = run_command
         # Initialize the state machine
-        self.machine = Machine(model=self, states=Fsm.states, initial='state_wait')
-        self.machine.add_transition(trigger='execute', source='state_wait', dest='state_execute', after='execute')
+        self.machine = Machine(model=self, states=self.states, initial='state_wait')
+        self.machine.add_transition(trigger='execute', source='state_wait', dest='state_execute', before='receive_cmd', after='execute')
 
     def sys_run(self, cmd):
         t1 = datetime.now()
         process = subprocess.run([cmd], capture_output=True, shell=True)
         t2 = datetime.now()
-        delta = t1 - t2
-        duration_ms = delta.total_seconds() * 1000
+        delta = t2 - t1
+        duration_ms = round(delta.total_seconds() * 1000)
 
         return_code = str(process.returncode)
         stderror = process.stderr.decode("utf-8")
         stdoutput = process.stdout.decode("utf-8")
         return duration_ms, return_code, stderror, stdoutput
     
-    def get_json(self, state, now, return_code, stderror, stdoutput, dmesg, duration_ms):
+    def get_json(self, state, now, return_code, stderror, stdoutput, dmesg, duration_ms, first_run):
         run_json = {
             'TIMESTAMP' : '',
             'STATE' : '',
@@ -46,7 +38,8 @@ class Fsm(object):
             'STDERROR': '',
             'RETURNCODE': '',
             'DMESG': '',
-            'DURATION_MS': ''
+            'DURATION_MS': '',
+            'FIRST_RUN' : ''
         }
         run_json['STATE'] = state
         run_json['TIMESTAMP'] = now
@@ -55,6 +48,7 @@ class Fsm(object):
         run_json['RETURNCODE'] = return_code 
         run_json['DMESG'] = dmesg
         run_json['DURATION_MS'] = duration_ms
+        run_json['FIRST_RUN'] = first_run
         return run_json
 
 
@@ -66,9 +60,9 @@ class Fsm(object):
         now = datetime.now() # current date and time
         log_date = now.strftime("%m_%d_%Y__%H_%M_%S.%f")[:-3]
         return log_date
+
     def execute(self):
         print("Executing benchmark")
-        
         dmesg_diff = ""
         if self.first_run == True:
             self.first_run = False
@@ -79,38 +73,51 @@ class Fsm(object):
             _, _, _, dmesg = self.sys_run("dmesg")
             dmesg_diff = dmesg[self.dmesg_length: len(dmesg)]
             self.dmesg_length = len(dmesg)
-
         duration_ms, return_code, stderror, stdoutput = self.sys_run(self.__run_command) 
-        now = self.time_stamp()      
-        print(dmesg_diff)
+        now = self.time_stamp()    
+        first_run = "1"
+        dic_result = self.get_json(self.state, now, return_code, stderror, stdoutput, dmesg_diff, duration_ms, first_run)
+        return dic_result
 
         
-    
 
 # Global Variables
 
-run_command = "/usr/bin/sysbench cpu --time=1 --threads=2 run"
-fsm = Fsm(run_command)
+
 
 def main():
+    run_command = "/usr/bin/sysbench cpu --time=1 --threads=2 run"
+    fsm = Fsm(run_command)
 
+    host = "127.0.0.1"  # Standard loopback interface address (localhost)
+    port = 65431  # Port to listen on (non-privileged ports are > 1023)
 
-    # clientSocket.connect( ( host, port ) )  
-    
-    # # keep track of connection status  
-    # connected = True  
-    # print( "connected to server" )  
+    serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    serverSocket.bind((host, port))
+    serverSocket.listen()
+    connection, _ = serverSocket.accept()
 
-    while True:
-        if fsm.state == 'state_wait':
-            print(fsm.state)
-            fsm.execute()
+    while True:  
+        # attempt to send and receive wave, otherwise reconnect  
+        try:
+            message = connection.recv( 1024 ).decode( "UTF-8" )
+            if message == "execute":
+                dic_result = fsm.execute() 
+                payload = pickle.dumps(dic_result)
+                connection.sendall(payload)
+        except socket.error:  
+            serverSocket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            serverSocket.bind((host, port))
+            serverSocket.listen()
+            connection, _ = serverSocket.accept()
+
 
 if __name__ == '__main__':
     try:
         print("Press Ctrl-C to terminate")   
         proc = main()
     except KeyboardInterrupt:
-        print('Exiting program')
+        print('Exiting program')                  
+        clientSocket.close();  
         sys.exit
         pass
