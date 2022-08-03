@@ -37,7 +37,7 @@ class ExecuteService(rpyc.Service):
             'DURATION_MS': '',
             'FIRST_RUN' : ''
         }
-        run_dict['RUN_COMMAND'] = now
+        run_dict['RUN_COMMAND'] = run_command
         run_dict['TIMESTAMP'] = now
         run_dict['STDOUT'] = stdoutput
         run_dict['STDERROR'] = stderror
