@@ -1,18 +1,15 @@
-import rpyc
+from xmlrpc.client import Boolean
+import rpyc #pip3.8 install rpyc
 
 from time import sleep
 import sys # for exit
 import subprocess
 from datetime import datetime, timedelta
 
-
-
 class ExecuteService(rpyc.Service):
 
     def __init__(self):
-        self.first_run = True
-        self.dmesg_length = 0
-        self.iteration = 0
+        pass
 
     def on_connect(self, conn):
         # code that runs when a connection is created
@@ -26,7 +23,7 @@ class ExecuteService(rpyc.Service):
         print("Client Disconnected")
         pass
 
-    def get_dict(self, run_command, now, return_code, stderror, stdoutput, dmesg, duration_ms, first_run):
+    def get_dict(self, run_command:str, now:str, return_code:str, stderror:str, stdoutput:str, dmesg:str, duration_ms:str):
         run_dict = {
             'RUN_COMMAND' : '',
             'TIMESTAMP' : '',
@@ -34,8 +31,7 @@ class ExecuteService(rpyc.Service):
             'STDERROR': '',
             'RETURNCODE': '',
             'DMESG': '',
-            'DURATION_MS': '',
-            'FIRST_RUN' : ''
+            'DURATION_MS': ''
         }
         run_dict['RUN_COMMAND'] = run_command
         run_dict['TIMESTAMP'] = now
@@ -44,7 +40,6 @@ class ExecuteService(rpyc.Service):
         run_dict['RETURNCODE'] = return_code 
         run_dict['DMESG'] = dmesg
         run_dict['DURATION_MS'] = duration_ms
-        run_dict['FIRST_RUN'] = first_run
         return run_dict
 
 
@@ -57,27 +52,14 @@ class ExecuteService(rpyc.Service):
         now = datetime.now() # current date and time
         log_date = now.strftime("%m_%d_%Y__%H_%M_%S.%f")[:-3] 
         return log_date
-
-    def exposed_execute(self, run_command):
-        print("Run[" + str(self.iteration) + "]: " + run_command)
-        self.iteration = self.iteration + 1
-        dmesg_diff = ""
-        if self.first_run == True:
-            self.first_run = False
-            _, _, _, dmesg = self.sys_run("dmesg")
-            self.dmesg_length = len(dmesg)
-            dmesg_diff = dmesg
-        else:
-            _, _, _, dmesg = self.sys_run("dmesg")
-            dmesg_diff = dmesg[self.dmesg_length: len(dmesg)]
-            self.dmesg_length = len(dmesg)
-        duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command) 
+    
+    def exposed_execute(self, run_command:str, dmesg_index:int):
+        print("Executing: " + run_command)
+        _, _, _, dmesg = self.sys_run("dmesg")
+        dmesg_diff = dmesg[dmesg_index: len(dmesg)]
+        duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command)
         now = self.time_stamp()
-        first_run = "0" 
-        if self.first_run == True:
-            first_run = "1"
-
-        dic_result = self.get_dict(run_command, now, return_code, stderror, stdoutput, dmesg_diff, duration_ms, first_run)
+        dic_result = self.get_dict(run_command, now, return_code, stderror, stdoutput, dmesg_diff, duration_ms)
         return dic_result
     
     def sys_run(self, cmd):
@@ -85,7 +67,7 @@ class ExecuteService(rpyc.Service):
         process = subprocess.run([cmd], capture_output=True, shell=True)
         t2 = datetime.now()
         delta = t2 - t1
-        duration_ms = round(delta.total_seconds() * 1000)
+        duration_ms = str(round(delta.total_seconds() * 1000))
         return_code = str(process.returncode)
         stderror = process.stderr.decode("utf-8")
         stdoutput = process.stdout.decode("utf-8")
@@ -97,8 +79,10 @@ if __name__ == '__main__':
         from rpyc.utils.server import ThreadPoolServer 
         server = ThreadPoolServer(ExecuteService, port=18861)
         server.start()
-        #server = ThreadPoolServer(ExecuteService, port=18861, nbThreads=1, requestBatchSize=1)
-        #server.start()
+        
+        
+        # server = ThreadPoolServer(ExecuteService, port=18861, nbThreads=1, requestBatchSize=1)
+        # server.start()
         # while True:
         #     server = OneShotServer(ExecuteService, port=18861)
         #     server.start()
