@@ -49,17 +49,17 @@ class ExecuteService(rpyc.Service):
         return self.execute()
     
     def time_stamp(self):
-        now = datetime.now() # current date and time
-        log_date = now.strftime("%m_%d_%Y__%H_%M_%S.%f")[:-3] 
+        now = datetime.now() # current day and time
+        log_date = now.strftime("%d__%H_%M_%S") 
         return log_date
     
-    def exposed_execute(self, run_command:str, dmesg_index:int):
+    def exposed_execute(self, run_command:str):
         print("Executing: " + run_command)
-        _, _, _, dmesg = self.sys_run("dmesg")
-        dmesg_diff = dmesg[dmesg_index: len(dmesg)]
+        #_, _, _, dmesg = self.sys_run("dmesg")
+        dmesg_diff = ""#dmesg #dmesg[dmesg_index: len(dmesg)]
         duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command)
-        now = self.time_stamp()
-        dic_result = self.get_dict(run_command, now, return_code, stderror, stdoutput, dmesg_diff, duration_ms)
+        now = self.time_stamp() # current day and time
+        dic_result = self.get_dict(run_command, now, return_code, stderror, stdoutput, dmesg_diff, str(duration_ms))
         return dic_result
     
     def sys_run(self, cmd):
@@ -67,7 +67,7 @@ class ExecuteService(rpyc.Service):
         process = subprocess.run([cmd], capture_output=True, shell=True)
         t2 = datetime.now()
         delta = t2 - t1
-        duration_ms = str(round(delta.total_seconds() * 1000))
+        duration_ms = round(delta.total_seconds() * 1000)
         return_code = str(process.returncode)
         stderror = process.stderr.decode("utf-8")
         stdoutput = process.stdout.decode("utf-8")
