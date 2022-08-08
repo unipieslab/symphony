@@ -1,5 +1,4 @@
-from xmlrpc.client import Boolean
-import rpyc #pip3.8 install rpyc
+import rpyc #pip3.9 install rpyc
 
 from time import sleep
 import sys # for exit
@@ -50,13 +49,13 @@ class ExecuteService(rpyc.Service):
     
     def time_stamp(self):
         now = datetime.now() # current day and time
-        log_date = now.strftime("%d__%H_%M_%S") 
+        log_date = now.strftime("%m_%d__%H_%M_%S") 
         return log_date
     
     def exposed_execute(self, run_command:str):
         print("Executing: " + run_command)
-        #_, _, _, dmesg = self.sys_run("dmesg")
-        dmesg_diff = ""#dmesg #dmesg[dmesg_index: len(dmesg)]
+        _, _, _, dmesg = self.sys_run("dmesg")
+        dmesg_diff = dmesg #dmesg[dmesg_index: len(dmesg)]
         duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command)
         now = self.time_stamp() # current day and time
         dic_result = self.get_dict(run_command, now, return_code, stderror, stdoutput, dmesg_diff, str(duration_ms))
