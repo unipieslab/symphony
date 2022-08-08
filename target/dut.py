@@ -40,37 +40,32 @@ class ExecuteService(rpyc.Service):
         command = "/root/triumf/symphony/target/bash_scripts/get_temp.sh"
         duration_ms, return_code, stderror, temp = self.sys_run(command)
         _ = duration_ms
-        if return_code != 0:
-            print(stderror)
         return temp
             
     def get_power(self):
         command = "/root/triumf/symphony/target/bash_scripts/get_power.sh"
         duration_ms, return_code, stderror, power = self.sys_run(command)
         _ = duration_ms
-        if return_code != 0:
-            print(stderror)
         return power
     
     def get_voltage(self):
-        command = "bash_scripts/currvolt"
+        command = "/root/triumf/symphony/target/bash_scripts/currvolt"
         duration_ms, return_code, stderror, currvolt = self.sys_run(command)
         _ = duration_ms
-        if return_code != 0:
-            print(stderror)
         return currvolt
     
     def get_freq(self):
-        command = "bash_scripts/currfreq"
-        duration_ms, return_code, stderror, currvolt = self.sys_run(command)
+        command = "/root/triumf/symphony/target/bash_scripts/currfreq"
+        duration_ms, return_code, stderror, currfreq = self.sys_run(command)
         _ = duration_ms
         if return_code != 0:
             print(stderror)
-        return currvolt
+        return currfreq
 
+    def exposed_alive(self):
+        return True
+    
     def exposed_execute(self, run_command:str, dmesg_index:int):
-        if not dmesg_diff:
-            dmesg_diff = 1
         print("Executing: " + run_command)
         _, _, _, dmesg = self.sys_run("dmesg")
         dmesg_diff = dmesg[dmesg_index: len(dmesg)]
@@ -89,6 +84,8 @@ class ExecuteService(rpyc.Service):
         delta = t2 - t1
         duration_ms = str(round(delta.total_seconds() * 1000))
         return_code = str(process.returncode)
+        if return_code != '0':
+            print(stderror)
         stderror = process.stderr.decode("utf-8")
         stdoutput = process.stdout.decode("utf-8")
         return duration_ms, return_code, stderror, stdoutput

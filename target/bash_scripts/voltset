@@ -69,5 +69,3 @@ else
         fi;
 fi;
 echo "You're ready to go..."
-echo "Current voltage values are: "
-./currvolt
