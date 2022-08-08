@@ -1,12 +1,16 @@
+from distutils.cmd import Command
 import rpyc #pip3.9 install rpyc
 
 from time import sleep
 import sys # for exit
 import subprocess
 from datetime import datetime, timedelta
+from dataclasses import dataclass
+
+
 
 class ExecuteService(rpyc.Service):
-
+    
     def __init__(self):
         pass
 
@@ -22,51 +26,68 @@ class ExecuteService(rpyc.Service):
         print("Client Disconnected")
         pass
 
-    def get_dict(self, run_command:str, now:str, return_code:str, stderror:str, stdoutput:str, dmesg:str, duration_ms:str):
-        run_dict = {
-            'RUN_COMMAND' : '',
-            'TIMESTAMP' : '',
-            'STDOUT' : '', 
-            'STDERROR': '',
-            'RETURNCODE': '',
-            'DMESG': '',
-            'DURATION_MS': ''
-        }
-        run_dict['RUN_COMMAND'] = run_command
-        run_dict['TIMESTAMP'] = now
-        run_dict['STDOUT'] = stdoutput
-        run_dict['STDERROR'] = stderror
-        run_dict['RETURNCODE'] = return_code 
-        run_dict['DMESG'] = dmesg
-        run_dict['DURATION_MS'] = duration_ms
-        return run_dict
-
-
     # My service
     def execute(self):
         print("Execute Request")
         return self.execute()
     
-    def time_stamp(self):
+    def get_timestamp(self):
         now = datetime.now() # current day and time
-        log_date = now.strftime("%m_%d__%H_%M_%S") 
+        log_date = now.strftime("%m_%d_%Y__%H_%M_%S")
         return log_date
     
-    def exposed_execute(self, run_command:str):
+    def get_temp(self):
+        command = "/root/triumf/symphony/target/bash_scripts/get_temp.sh"
+        duration_ms, return_code, stderror, temp = self.sys_run(command)
+        _ = duration_ms
+        if return_code != 0:
+            print(stderror)
+        return temp
+            
+    def get_power(self):
+        command = "/root/triumf/symphony/target/bash_scripts/get_power.sh"
+        duration_ms, return_code, stderror, power = self.sys_run(command)
+        _ = duration_ms
+        if return_code != 0:
+            print(stderror)
+        return power
+    
+    def get_voltage(self):
+        command = "bash_scripts/currvolt"
+        duration_ms, return_code, stderror, currvolt = self.sys_run(command)
+        _ = duration_ms
+        if return_code != 0:
+            print(stderror)
+        return currvolt
+    
+    def get_freq(self):
+        command = "bash_scripts/currfreq"
+        duration_ms, return_code, stderror, currvolt = self.sys_run(command)
+        _ = duration_ms
+        if return_code != 0:
+            print(stderror)
+        return currvolt
+
+    def exposed_execute(self, run_command:str, dmesg_index:int):
+        if not dmesg_diff:
+            dmesg_diff = 1
         print("Executing: " + run_command)
         _, _, _, dmesg = self.sys_run("dmesg")
-        dmesg_diff = dmesg #dmesg[dmesg_index: len(dmesg)]
+        dmesg_diff = dmesg[dmesg_index: len(dmesg)]
         duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command)
-        now = self.time_stamp() # current day and time
-        dic_result = self.get_dict(run_command, now, return_code, stderror, stdoutput, dmesg_diff, str(duration_ms))
-        return dic_result
+        timestamp = self.get_timestamp() # current day and time
+        power = self.get_power()
+        temp = self.get_temp()
+        voltage = self.get_voltage()
+        freq = self.get_freq()
+        return run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
     
     def sys_run(self, cmd):
         t1 = datetime.now()
         process = subprocess.run([cmd], capture_output=True, shell=True)
         t2 = datetime.now()
         delta = t2 - t1
-        duration_ms = round(delta.total_seconds() * 1000)
+        duration_ms = str(round(delta.total_seconds() * 1000))
         return_code = str(process.returncode)
         stderror = process.stderr.decode("utf-8")
         stdoutput = process.stdout.decode("utf-8")

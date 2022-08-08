@@ -1,0 +1,15 @@
+#!/bin/bash
+
+if [ $# -eq 1 ]; then   # Make sure we have the correct argc
+        CPU=$1
+	if [ $CPU = "all" ]; then
+		cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq 	
+	elif [ $CPU -lt 0 ] || [ $CPU -gt 7 ]; then
+		echo "Usage: Core 0-7 or \"all\" options"
+	else
+		cat /sys/devices/system/cpu/cpu${CPU}/cpufreq/scaling_cur_freq
+	fi;
+else
+	cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq
+fi
+

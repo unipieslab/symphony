@@ -1,0 +1,9 @@
+#!/bin/bash
+I2C_IN=1
+i2cget -y ${I2C_IN} 0x2f 0x34 w &>/dev/null
+[ $? -ne 0 ] && I2C_IN=0
+
+if ! i2cset -y ${I2C_IN} 0x2f 0x34 $(printf "%#06x" 980) w; then exit 1; fi
+sleep 5
+if ! i2cset -y ${I2C_IN} 0x2f 0x35 $(printf "%#06x" 950) w; then exit 1; fi
+sleep 5

@@ -1,0 +1,3 @@
+#!/bin/bash
+printf "POWER(W): PMD=%d.%03d, SoC=%d.%03d, DIMM1=%d.%03d, DIMM2=%d.%03d\n" $(i2cget -y 1 0x2f 0x20 w) $(i2cget -y 1 0x2f 0x21 w) $(i2cget -y 1 0x2f 0x22 w) $(i2cget -y 1 0x2f 0x23 w) $(i2cget -y 1 0x2f 0x24 w) $(i2cget -y 1 0x2f 0x25 w) $(i2cget -y 1 0x2f 0x26 w) $(i2cget -y 1 0x2f 0x27 w) #>> ${file}
+		
