@@ -93,10 +93,10 @@ class Tester:
 
         self.CURRENT_BENCHMARK_ID = "LU"
         self.CURRENT_VOLTAGE_ID = "V910"
-        self.TIMEOUT_SCALE_BENCHMARK = 1.2
+        self.TIMEOUT_SCALE_BENCHMARK = 1.5
         self.TIMEOUT_SCALE_BOOT = 1.5
-        self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 1.3
-        self.TIMEOUT_SCALE_VOLTAGE = 1.15
+        self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 2
+        self.TIMEOUT_SCALE_VOLTAGE = 1.5
         
 
         self.EXECUTION_ATTEMPT = 3
@@ -158,7 +158,7 @@ class Tester:
     
     
 
-    def power_button(self, count_enable):
+    def power_cycle(self, count_enable):
         VID = '0403'
         PID = '6001'
         SERIAL_NUM = 'A50285BI'
@@ -182,6 +182,17 @@ class Tester:
                 self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
             self.set_voltage()
 
+    def power_button(self):
+        VID = '0403'
+        PID = '6001'
+        SERIAL_NUM = 'A50285BI'
+        ser = self.find_reset_uart(VID, PID, SERIAL_NUM)
+        if ser != None:
+            ser.dtr = True
+            self.sleep(2)
+            ser.dtr = False
+            self.sleep(2)
+            ser.close()
 
     def reset_button(self):
         VID = '0403'
@@ -239,7 +250,7 @@ class Tester:
                 self.logging.critical('Remote is down..trying to connect. Attemp: ' + str(attemp_counter))
                 self.sleep(sleep_sec_excep)
                 if conn_count_thresh <=0:
-                    self.power_button(True)
+                    self.power_cycle(True)
                     conn_count_thresh =  int(boot_timeout_sec / sleep_sec_excep)
                 pass
         
@@ -304,7 +315,6 @@ class Tester:
             verification_str = self.verification_regex.findall(result)
             answer = str(verification_str[0][1])
             answer = answer.strip()
-            print(answer)
             if answer == "SUCCESSFUL":
                 return True
             else:
@@ -392,7 +402,7 @@ class Tester:
 
         self.logging.info('Starting... Benchmark: ' + self.BENCHMARK_COMMAND)
         
-        self.power_button(False)
+        self.power_cycle(False)
         
         error_consecutive = 0
 
@@ -424,12 +434,13 @@ class Tester:
                 self.reset_button()
 
             if error_consecutive == 3:
-                self.power_button(True)
+                self.power_cycle(True)
 
 def main():
     test = Tester()
     test.experiment_start()
     #test.get_timeouts()
+    #test.power_button()
 if __name__ == '__main__':
     try:
         print("Press Ctrl-C to terminate") 
