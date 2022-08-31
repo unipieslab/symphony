@@ -1,0 +1,13 @@
+[Unit]
+Description=Target rpyc
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=3
+WorkingDirectory=/root/triumf/symphony/target
+
+ExecStart=/root/triumf/symphony/target/run.sh
+
+[Install]
+WantedBy=multi-user.target

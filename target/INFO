@@ -1,0 +1,6 @@
+cp target.service /etc/systemd/system/
+systemctl daemon-reload
+systemctl start target
+isystemctl status target
+systemctl enable target
+
