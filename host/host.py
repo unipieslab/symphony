@@ -3,6 +3,7 @@ import sys # for exit
 
 
 class Tester:
+    import traceback
     import rpyc
     from time import sleep
     import serial
@@ -11,6 +12,9 @@ class Tester:
     import re
     from datetime import datetime
     import logging
+    from time import time
+    import timeit
+    import math
 
 
     def __init__(self):
@@ -27,8 +31,9 @@ class Tester:
         self.logging.getLogger().addHandler(screen_handler)
 
 
-        self.regex = r'Verification( +)=( +)(SUCCESSFUL)'
-        self.success_regex = self.re.compile(self.regex, self.re.IGNORECASE)
+        regex = r'Verification( +)=(. +.*)'
+        self.verification_regex = self.re.compile(regex, self.re.IGNORECASE)
+        
 
         self.first_dmesg = True
 
@@ -40,28 +45,17 @@ class Tester:
         self.sdc_counter = 0     
 
         # CONSTANTS
+        # check https://github.com/gtcasl/hpc-benchmarks/blob/master/NPB3.3/NPB3.3-MPI/
         self.benchmarks_list = ["MG", "CG", "CG", "IS", "LU", "EP"]
         self.benchmark_commands = {
             "MG" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/mg.A.8',
             "CG" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/cg.A.8',
-            "CG" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/ft.A.8', 
+            "FT" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/ft.A.8', 
             "IS" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/is.A.8',
             "LU" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/lu.A.8',
             "EP" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/ep.A.8'
         }
 
-        self.TARGET_IP = "10.30.0.100" #"localhost"
-        self.TARGET_PORT = 18861
-        self.BOOT_TIMEOUT_SEC = 150
-        self.POWER_CYCLE_ATTEMPS = 5
-        self.NETWORK_TIMEOUT_SEC = 5
-        self.BENCHMARK_TIMEOUT = 1
-        self.BENCHMARK_COLD_CACHE_TIMEOUT = 20
-        self.DMESG_TIMEOUT = 100
-        self.VOLTAGE_CONFIG_TIMEOUT = 150
-        self.CURRENT_BENCHMARK_ID = "MG"
-        self.BENCHMARK_COMMAND = self.benchmark_commands[self.CURRENT_BENCHMARK_ID]
-        self.EXECUTION_ATTEMPT = 3
         # Voltage Combinations for Beaming
         # PMD -  SOC
         # 980 - 950
@@ -73,8 +67,54 @@ class Tester:
         # PMD -  SOC
         # 910 - 950
 
-        self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 980" 
-        #self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset PMD 910" 
+        self.voltage_commands = {
+            "V980" : '/root/triumf/symphony/target/bash_scripts/voltset ALL 980',
+            "V960" : '/root/triumf/symphony/target/bash_scripts/voltset ALL 960',
+            "V940" : '/root/triumf/symphony/target/bash_scripts/voltset ALL 940', 
+            "V930" : '/root/triumf/symphony/target/bash_scripts/voltset ALL 930',
+            "V910" : '/root/triumf/symphony/target/bash_scripts/voltset PMD 910'  
+        }
+
+        #HDD
+        self.timeouts = {
+            "BOOT" : 102, 
+            "MG" : 3,
+            "CG" : 3,
+            "FT" : 50, 
+            "IS" : 2,
+            "LU" : 28,
+            "EP" : 6,
+            "V980" : 11,
+            "V960" : 41,
+            "V940" : 81,
+            "V930" : 101,
+            "V910" : 71
+        }
+
+        self.CURRENT_BENCHMARK_ID = "LU"
+        self.CURRENT_VOLTAGE_ID = "V910"
+        self.TIMEOUT_SCALE_BENCHMARK = 1.2
+        self.TIMEOUT_SCALE_BOOT = 1.5
+        self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 1.3
+        self.TIMEOUT_SCALE_VOLTAGE = 1.15
+        
+
+        self.EXECUTION_ATTEMPT = 3
+        self.NETWORK_TIMEOUT_SEC = 5
+
+        self.TARGET_IP = "10.30.0.100" #"localhost"
+        self.TARGET_PORT = 18861 
+
+        self.BENCHMARK_COMMAND = self.benchmark_commands[self.CURRENT_BENCHMARK_ID]
+        self.COMMAND_VOLTAGE = self.voltage_commands[self.CURRENT_VOLTAGE_ID]
+        
+        self.BOOT_TIMEOUT_SEC = round(self.timeouts["BOOT"] * self.TIMEOUT_SCALE_BOOT)
+        self.VOLTAGE_CONFIG_TIMEOUT = round(self.timeouts[self.CURRENT_VOLTAGE_ID] * self.TIMEOUT_SCALE_VOLTAGE)
+        self.BENCHMARK_TIMEOUT = round(self.timeouts[self.CURRENT_BENCHMARK_ID] * self.TIMEOUT_SCALE_BENCHMARK)
+        self.BENCHMARK_COLD_CACHE_TIMEOUT = round(self.timeouts[self.CURRENT_BENCHMARK_ID] \
+            * self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK)
+        self.DMESG_TIMEOUT = 10
+
 
     def find_reset_uart(self, VID:str, PID:str, SERIAL_NUM:str):
         """This function finds the specific UART that is used for resetting and power cycling the XGENE-2
@@ -127,7 +167,7 @@ class Tester:
             ser.dtr = True
             self.sleep(2)
             ser.dtr = False
-            self.sleep(2)
+            self.sleep(5)
             ser.dtr = True
             self.sleep(2)
             ser.dtr = False
@@ -137,6 +177,7 @@ class Tester:
             self.power_cycle_counter += 1
         self.logging.warning("Power Cycle")
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
+            self.logging.info("Booted")
             run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
                 self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
             self.set_voltage()
@@ -155,6 +196,7 @@ class Tester:
         self.reset_counter +=1
         self.logging.warning('Reset')
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
+            self.logging.info("Booted")
             run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
                 self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
             self.set_voltage()
@@ -165,10 +207,10 @@ class Tester:
             self.remote_execute("date", self.DMESG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1) 
         return dmesg
 
-    def set_voltage(self):     
+    def set_voltage(self):
+        self.logging.info('Configuring voltage: ' + self.COMMAND_VOLTAGE)     
         run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
             self.remote_execute(self.COMMAND_VOLTAGE, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
-        self.logging.info('Configuring voltage: ' + self.COMMAND_VOLTAGE)
         if return_code != '0':
             self.logging.critical('Return error code: ' + return_code + ' Configuring voltage: ' + self.COMMAND_VOLTAGE)
 
@@ -258,11 +300,93 @@ class Tester:
 
 
     def is_result_correct(self, result):
-        success_str = self.success_regex.findall(result)
-        if success_str[0][2] == "SUCCESSFUL":
-            return True
-        else:
-            return False
+        try:
+            verification_str = self.verification_regex.findall(result)
+            answer = str(verification_str[0][1])
+            answer = answer.strip()
+            print(answer)
+            if answer == "SUCCESSFUL":
+                return True
+            else:
+                return False
+        except Exception:
+            self.logging.warning("Regexpr output: " + answer)
+            self.logging.warning(self.traceback.format_exc())
+    
+    
+    def get_timeouts(self):
+
+        try:
+            VID = '0403'
+            PID = '6001'
+            SERIAL_NUM = 'A50285BI'
+            ser = self.find_reset_uart(VID, PID, SERIAL_NUM)
+            if ser != None:
+                ser.rts = True
+                self.sleep(1)
+                ser.rts = False
+                ser.close()
+            start = self.timeit.default_timer()
+            self.remote_alive(self.BOOT_TIMEOUT_SEC)
+            time = str(self.math.ceil(self.timeit.default_timer() - start))
+            self.logging.info("boot_time: " + time)
+
+            # Voltage Combinations for Beaming
+            # PMD -  SOC
+            # 980 - 950
+            # 960 - 940
+            # 940 - 930
+            # 930 - 920
+
+            # Non Safe Voltage
+            # PMD -  SOC
+            # 910 - 950
+            start = self.time()
+            self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 980" 
+            start = self.timeit.default_timer()
+            self.set_voltage()
+            voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
+            self.logging.info("voltage_config_time 980: " + voltage_config_time)
+
+            self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 960" 
+            start = self.timeit.default_timer()
+            self.set_voltage()
+            voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
+            self.logging.info("voltage_config_time 960: " + voltage_config_time)
+
+            self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 940" 
+            start = self.timeit.default_timer()
+            self.set_voltage()
+            voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
+            self.logging.info("voltage_config_time 940: " + voltage_config_time)
+
+            self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 930" 
+            start = self.timeit.default_timer()
+            self.set_voltage()
+            voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
+            self.logging.info("voltage_config_time 930: " + voltage_config_time)
+
+            start = self.timeit.default_timer()
+            self.remote_execute(self.BENCHMARK_COMMAND, 100, self.NETWORK_TIMEOUT_SEC, 1)
+            time = str(self.math.ceil(self.timeit.default_timer() - start))
+            self.logging.info("benchmark_time 930 " + self.CURRENT_BENCHMARK_ID + ":" + time)
+
+            for item in self.benchmarks_list:
+                self.CURRENT_BENCHMARK_ID = item
+                self.BENCHMARK_COMMAND = self.benchmark_commands[self.CURRENT_BENCHMARK_ID]
+                start = self.timeit.default_timer()
+                self.remote_execute(self.BENCHMARK_COMMAND, 100, self.NETWORK_TIMEOUT_SEC, 1)
+                time = str(self.math.ceil(self.timeit.default_timer() - start))
+                self.logging.info("benchmark_time 930 " + self.CURRENT_BENCHMARK_ID + ":" + time)
+
+            self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 910" 
+            start = self.timeit.default_timer()
+            self.set_voltage()
+            voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
+            self.logging.info("voltage_config_time 910: " + voltage_config_time)
+
+        except Exception:
+            self.logging.warning(self.traceback.format_exc())
 
     def experiment_start(self):
 
@@ -305,7 +429,7 @@ class Tester:
 def main():
     test = Tester()
     test.experiment_start()
-
+    #test.get_timeouts()
 if __name__ == '__main__':
     try:
         print("Press Ctrl-C to terminate") 
