@@ -44,6 +44,8 @@ class Tester:
         self.duration_min_total = 0
         self.sdc_counter = 0     
 
+        self.first_boot = True
+
         # CONSTANTS
         # check https://github.com/gtcasl/hpc-benchmarks/blob/master/NPB3.3/NPB3.3-MPI/
         self.benchmarks_list = ["MG", "CG", "CG", "IS", "LU", "EP"]
@@ -115,6 +117,11 @@ class Tester:
             * self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK)
         self.DMESG_TIMEOUT = 10
 
+        # Reset UART INFO
+        self.VID = '0403'
+        self.PID = '6001'
+        self.SERIAL_NUM = 'A50285BI'
+
 
     def find_reset_uart(self, VID:str, PID:str, SERIAL_NUM:str):
         """This function finds the specific UART that is used for resetting and power cycling the XGENE-2
@@ -159,10 +166,8 @@ class Tester:
     
 
     def power_cycle(self, count_enable):
-        VID = '0403'
-        PID = '6001'
-        SERIAL_NUM = 'A50285BI'
-        ser = self.find_reset_uart(VID, PID, SERIAL_NUM)
+        self.first_boot = True
+        ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
         if ser != None:
             ser.dtr = True
             self.sleep(2)
@@ -172,21 +177,17 @@ class Tester:
             self.sleep(2)
             ser.dtr = False
             ser.close()
-
         if count_enable == True:
             self.power_cycle_counter += 1
         self.logging.warning("Power Cycle")
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
             self.logging.info("Booted")
-            run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
-                self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
             self.set_voltage()
+            
 
     def power_button(self):
-        VID = '0403'
-        PID = '6001'
-        SERIAL_NUM = 'A50285BI'
-        ser = self.find_reset_uart(VID, PID, SERIAL_NUM)
+        self.first_boot = True
+        ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
         if ser != None:
             ser.dtr = True
             self.sleep(2)
@@ -195,10 +196,8 @@ class Tester:
             ser.close()
 
     def reset_button(self):
-        VID = '0403'
-        PID = '6001'
-        SERIAL_NUM = 'A50285BI'
-        ser = self.find_reset_uart(VID, PID, SERIAL_NUM)
+        self.first_boot = True
+        ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
         if ser != None:
             ser.rts = True
             self.sleep(1)
@@ -208,11 +207,8 @@ class Tester:
         self.logging.warning('Reset')
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
             self.logging.info("Booted")
-            run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
-                self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
             self.set_voltage()
-
-
+            
     def get_dmesg(self):
         run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg = \
             self.remote_execute("date", self.DMESG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1) 
@@ -408,8 +404,15 @@ class Tester:
 
         while True:
             #command:str, command_timeout_sec:int, network_timout_sec: int, dmesg_index:int)
-            run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
-                self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
+            
+            if self.first_boot == True:
+                self.first_boot = False
+                run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
+                self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
+            else:    
+                run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
+                    self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
+            
             self.run_counter += 1
             self.duration_min_total += (float(duration_ms)/1000)/60
             duration_min_total_str = str("{:.2f}".format(round(self.duration_min_total, 2)))
