@@ -40,12 +40,6 @@ class Tester:
         self.sdc_counter = 0     
 
         # CONSTANTS
-        self.TARGET_IP = "10.30.0.100" #"localhost"
-        self.TARGET_PORT = 18861
-        self.BOOT_TIMEOUT_SEC = 150
-        self.BOOT_BENCHMARK_TIMOUT_SEC = 20
-        self.POWER_CYCLE_ATTEMPS = 5
-
         self.benchmarks_list = ["MG", "CG", "CG", "IS", "LU", "EP"]
         self.benchmark_commands = {
             "MG" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/mg.A.8',
@@ -56,6 +50,18 @@ class Tester:
             "EP" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/ep.A.8'
         }
 
+        self.TARGET_IP = "10.30.0.100" #"localhost"
+        self.TARGET_PORT = 18861
+        self.BOOT_TIMEOUT_SEC = 150
+        self.POWER_CYCLE_ATTEMPS = 5
+        self.NETWORK_TIMEOUT_SEC = 5
+        self.BENCHMARK_TIMEOUT = 1
+        self.BENCHMARK_COLD_CACHE_TIMEOUT = 20
+        self.DMESG_TIMEOUT = 100
+        self.VOLTAGE_CONFIG_TIMEOUT = 150
+        self.CURRENT_BENCHMARK_ID = "MG"
+        self.BENCHMARK_COMMAND = self.benchmark_commands[self.CURRENT_BENCHMARK_ID]
+        self.EXECUTION_ATTEMPT = 3
         # Voltage Combinations for Beaming
         # PMD -  SOC
         # 980 - 950
@@ -67,8 +73,8 @@ class Tester:
         # PMD -  SOC
         # 910 - 950
 
-        #self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 980" 
-        self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset PMD 910" 
+        self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 980" 
+        #self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset PMD 910" 
 
     def find_reset_uart(self, VID:str, PID:str, SERIAL_NUM:str):
         """This function finds the specific UART that is used for resetting and power cycling the XGENE-2
@@ -99,34 +105,40 @@ class Tester:
             ser.dtr = False
             ser.rts = False
             ser.open()
-            self.logging.info("opening serial port:" + port + " @" + BAUDRATE)
+            ser.dtr = False
+            ser.rts = False
+            self.logging.info("Opening serial port:" + port + " @" + BAUDRATE)
             return ser
         except:
             if port == None:
-                self.logging.critical("ALERT: CANNOT FIND UART FOR RESET")
-            while True:
-                pass
+                self.logging.critical("Cannot find reset UART")
+            # while True:
+            #     dummy = None
             
     
     
 
-    def power_button(self):
+    def power_button(self, count_enable):
         VID = '0403'
         PID = '6001'
         SERIAL_NUM = 'A50285BI'
         ser = self.find_reset_uart(VID, PID, SERIAL_NUM)
-        ser.dtr = True
-        self.sleep(2)
-        ser.dtr = False
-        self.sleep(2)
-        ser.dtr = True
-        self.sleep(2)
-        ser.dtr = False
         if ser != None:
+            ser.dtr = True
+            self.sleep(2)
+            ser.dtr = False
+            self.sleep(2)
+            ser.dtr = True
+            self.sleep(2)
+            ser.dtr = False
             ser.close()
-        self.power_cycle_counter += 1
+
+        if count_enable == True:
+            self.power_cycle_counter += 1
         self.logging.warning("Power Cycle")
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
+            run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
+                self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
             self.set_voltage()
 
 
@@ -135,23 +147,27 @@ class Tester:
         PID = '6001'
         SERIAL_NUM = 'A50285BI'
         ser = self.find_reset_uart(VID, PID, SERIAL_NUM)
-        ser.rts = True
-        self.sleep(1)
-        ser.rts = False
         if ser != None:
+            ser.rts = True
+            self.sleep(1)
+            ser.rts = False
             ser.close()
         self.reset_counter +=1
         self.logging.warning('Reset')
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
+            run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
+                self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
             self.set_voltage()
 
 
     def get_dmesg(self):
-        run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg = self.remote_execute("date", 150, 5, 1) 
+        run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg = \
+            self.remote_execute("date", self.DMESG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1) 
         return dmesg
 
     def set_voltage(self):     
-        run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = self.remote_execute(self.COMMAND_VOLTAGE, 150, 5, 1)
+        run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
+            self.remote_execute(self.COMMAND_VOLTAGE, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
         self.logging.info('Configuring voltage: ' + self.COMMAND_VOLTAGE)
         if return_code != '0':
             self.logging.critical('Return error code: ' + return_code + ' Configuring voltage: ' + self.COMMAND_VOLTAGE)
@@ -181,7 +197,7 @@ class Tester:
                 self.logging.critical('Remote is down..trying to connect. Attemp: ' + str(attemp_counter))
                 self.sleep(sleep_sec_excep)
                 if conn_count_thresh <=0:
-                    self.power_button()
+                    self.power_button(True)
                     conn_count_thresh =  int(boot_timeout_sec / sleep_sec_excep)
                 pass
         
@@ -189,6 +205,7 @@ class Tester:
         sleep_sec_excep = 0.5 
         conn_count_thresh =  int(network_timout_sec / sleep_sec_excep)
         attemp_counter = 0
+        execution_attempt_counter = 1
         while True:
             try:
                 c = self.rpyc.connect(self.TARGET_IP, self.TARGET_PORT)
@@ -202,9 +219,13 @@ class Tester:
                         c.close() 
                         return run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff  
                     except:
-                        self.logging.critical("Execution timeout")
-                        c.close() 
-                        self.reset_button()
+                        c.close()
+                        if  execution_attempt_counter > self.EXECUTION_ATTEMPT:
+                            self.reset_button()
+                        else:
+                            self.logging.critical("Execution timeout. Attempt " + str(execution_attempt_counter))
+                        execution_attempt_counter += 1
+                        
             except:
                 conn_count_thresh -= 1 
                 attemp_counter += 1
@@ -244,20 +265,17 @@ class Tester:
             return False
 
     def experiment_start(self):
-        CURRENT_BENCHMARK_ID = "MG"
-        NETWORK_TIMEOUT_SEC = 5
-        BENCHMARK_TIMEOUT = 5
-        command = self.benchmark_commands[CURRENT_BENCHMARK_ID]
-        self.logging.info('Starting... Benchmark: ' + command)
+
+        self.logging.info('Starting... Benchmark: ' + self.BENCHMARK_COMMAND)
         
-        self.power_button()
+        self.power_button(False)
         
         error_consecutive = 0
 
         while True:
             #command:str, command_timeout_sec:int, network_timout_sec: int, dmesg_index:int)
             run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
-                self.remote_execute(command, BENCHMARK_TIMEOUT, NETWORK_TIMEOUT_SEC, 1)
+                self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
             self.run_counter += 1
             self.duration_min_total += (float(duration_ms)/1000)/60
             duration_min_total_str = str("{:.2f}".format(round(self.duration_min_total, 2)))
@@ -282,7 +300,7 @@ class Tester:
                 self.reset_button()
 
             if error_consecutive == 3:
-                self.power_button()
+                self.power_button(True)
 
 def main():
     test = Tester()
