@@ -76,7 +76,7 @@ class Tester:
         # Non Safe Voltage
         # PMD -  SOC
         # 910 - 950
-
+        self.voltage_list = ["V910", "V930", "V940", "V960", "V980"]
         self.voltage_commands = {
             "V980" : '/root/triumf/symphony/target/bash_scripts/voltset ALL 980',
             "V960" : '/root/triumf/symphony/target/bash_scripts/voltset ALL 960',
@@ -104,9 +104,9 @@ class Tester:
         self.CURRENT_BENCHMARK_ID = "MG"
         self.CURRENT_VOLTAGE_ID = "V980"
         self.TIMEOUT_SCALE_BENCHMARK = 2.0
-        self.TIMEOUT_SCALE_BOOT = 1.7
-        self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 3.0
-        self.TIMEOUT_SCALE_VOLTAGE = 3.0
+        self.TIMEOUT_SCALE_BOOT = 1.1
+        self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.0
+        self.TIMEOUT_SCALE_VOLTAGE = 1.2
         self.RESET_AFTER_CONCECUTIVE_ERRORS = 2
         # The DUT power cycles after (RESET_AFTER_CONCECUTIVE_ERRORS + 1)
 
@@ -118,8 +118,15 @@ class Tester:
         self.TEMP_DIMM1_THRESHOLD = 75 #64
         self.POWER_DIMM1_THRESHOLD = 9.0 #6.745
 
-        self.EXECUTION_ATTEMPT = 3
-        self.NETWORK_TIMEOUT_SEC = 5
+        self.current_pmd_threshold_max = 0 
+        self.current_soc_threshold_max = 0 
+        self.temp_pmd_threshold_max = 0 
+        self.temp_soc_threshold_max = 0 
+        self.temp_dimm1_threshold_max = 0
+        self.power_dimm1_threshold_max = 0
+
+        self.EXECUTION_ATTEMPT = 1
+        self.NETWORK_TIMEOUT_SEC = 2
 
         
         self.TARGET_IP = "10.30.0.100" #"localhost"
@@ -183,11 +190,11 @@ class Tester:
             else:
                 self.logging.critical("self.DISABLE_RESET = " + str(self.DISABLE_RESET))
                 return None
-        except:
+        except Exception:
+            self.logging.warning(self.traceback.format_exc())
             if port == None:
                 self.logging.critical("Cannot find reset UART")
-            # while True:
-            #     dummy = None
+                pass
             
     
     
@@ -273,7 +280,7 @@ class Tester:
             except:
                 conn_count_thresh -= 1 
                 attemp_counter += 1
-                self.logging.critical('Remote is down..trying to connect. Attemp: ' + str(attemp_counter))
+                self.logging.critical('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 self.sleep(sleep_sec_excep)
                 if conn_count_thresh <=0:
                     self.power_cycle(True)
@@ -313,7 +320,7 @@ class Tester:
             except:
                 conn_count_thresh -= 1 
                 attemp_counter += 1
-                self.logging.critical('Remote is down..trying to connect. Attemp: ' + str(attemp_counter))
+                self.logging.critical('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 self.sleep(sleep_sec_excep)
                 if conn_count_thresh <=0:
                     self.reset_button()
@@ -367,7 +374,27 @@ class Tester:
                 self.sdc_counter = int(state["sdc_counter"])
         except:
             pass
+    
+    def save_thresholds(self):
 
+        filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
+
+        threshold_file = "config/" + filename
+
+        threshold = {
+            "current_pmd_threshold_max": str(self.current_pmd_threshold_max),
+            "power_cycle_counter" : str(self.current_soc_threshold_max) ,
+            "current_soc_threshold_max" : str(self.power_dimm1_threshold_max), 
+            "temp_pmd_threshold_max" : str(self.temp_pmd_threshold_max),
+            "temp_soc_threshold_max" : str(self.temp_soc_threshold_max),
+            "dimm1_threshold_max" : str(self.temp_dimm1_threshold_max)   
+        }
+
+        try:
+            with open(threshold_file, "w") as json_file:
+                self.json.dump(threshold, json_file)
+        except:
+            pass
 
     def is_result_correct(self, result):
         try:
@@ -481,9 +508,29 @@ class Tester:
     
             power_curr_volt_temp_str = "MONITOR: PMD = "+ str(power_pmd) + "(W)/" + str(current_pmd) + "(A)/" + str(voltage_pmd) +"(V)/" \
                 + str(temp_pmd)+"(C) | SoC = "+ str(power_soc) + "(W)/" + str(current_soc) + "(A)/" + str(voltage_soc) +"(V)/" + str(temp_soc)+"(C)" \
-                    + " | DIMM1 = "+ str(power_dimm1) + "(W)/" + str(temp_dimm)+"(C)" 
-
+                    + " | DIMM1 = "+ str(power_dimm1) + "(W)/" + str(temp_dimm)+"(C)"
             self.logging.info(power_curr_volt_temp_str)
+            
+            if current_pmd > self.current_pmd_threshold_max:
+                self.current_pmd_threshold_max = current_pmd
+            if current_soc > self.current_soc_threshold_max:
+                self.current_soc_threshold_max = current_soc
+            if power_dimm1 > self.power_dimm1_threshold_max:
+                self.power_dimm1_threshold_max = power_dimm1
+            if temp_pmd > self.temp_pmd_threshold_max:
+                self.temp_pmd_threshold_max = temp_pmd
+            if temp_soc > self.temp_soc_threshold_max:
+                self.temp_soc_threshold_max = temp_soc
+            if temp_dimm > self.temp_dimm1_threshold_max:
+                self.temp_dimm1_threshold_max = temp_dimm
+
+            self.save_thresholds()
+
+            max_power_curr_volt_temp_str = "MONITOR(MAX): PMD = " + str(self.current_pmd_threshold_max) + "(A)/" + str(voltage_pmd) +"(V)/" \
+                + str(self.temp_pmd_threshold_max)+"(C) | SoC = " + str(self.current_soc_threshold_max) + "(A)/" + str(self.temp_soc_threshold_max)+"(C)" \
+                    + " | DIMM1 = "+ str(self.power_dimm1_threshold_max) + "(W)/" + str(self.temp_dimm1_threshold_max)+"(C)"
+            
+            self.logging.info(max_power_curr_volt_temp_str)
 
             if current_pmd > self.CURRENT_PMD_THRESHOLD:
                 self.logging.critical("PMD overcurrent: " + str(current_pmd) + "(A)")
@@ -512,6 +559,7 @@ class Tester:
         error_consecutive = 0
 
         self.restore_state()
+
         try:
             while True:
                 #command:str, command_timeout_sec:int, network_timout_sec: int, dmesg_index:int)
