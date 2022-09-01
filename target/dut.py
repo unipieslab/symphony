@@ -75,7 +75,16 @@ class ExecuteService(rpyc.Service):
         temp = self.get_temp()
         voltage = self.get_voltage()
         freq = self.get_freq()
-        return run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
+        
+        healthlog_file = '/var/log/healthlog'
+        healthlog = ""
+        try:
+            with open(healthlog_file, 'r') as f:
+                healthlog = f.read()
+        except Exception:
+            pass
+            
+        return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
     
     def sys_run(self, cmd):
         t1 = datetime.now()
