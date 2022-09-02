@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import sys # for exit
 
-
 class Tester:
     import traceback
     import rpyc
@@ -15,6 +14,30 @@ class Tester:
     from time import time
     import timeit
     import math
+    from datetime import timedelta
+
+    class CustomFormatter(logging.Formatter):
+        import logging
+        grey = "\x1b[38;20m"
+        yellow = "\x1b[33;20m"
+        red = "\x1b[31;20m"
+        bold_red = "\x1b[31;1m"
+        reset = "\x1b[0m"
+        format = "%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s"
+        #format = "%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s:%(lineno)d)"
+
+        FORMATS = {
+            logging.DEBUG: grey + format + reset,
+            logging.INFO: grey + format + reset,
+            logging.WARNING: yellow + format + reset,
+            logging.ERROR: red + format + reset,
+            logging.CRITICAL: bold_red + format + reset
+        }
+
+        def format(self, record):
+            log_fmt = self.FORMATS.get(record.levelno)
+            formatter = self.logging.Formatter(log_fmt)
+            return formatter.format(record)
 
 
     def __init__(self):
@@ -22,14 +45,15 @@ class Tester:
         self.now = self.datetime.now() # current date and time
         self.log_date = self.now.strftime("%m_%d_%Y__%H_%M_%S")
         self.log_file_name = 'logs/log_' + self.log_date + '.log'
+        # self.logging.INFO
         self.logging.basicConfig(filename=self.log_file_name, encoding='utf-8', format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s' \
-            ,level=self.logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
-        formatter = self.logging.Formatter(fmt='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
-                              datefmt='%Y-%m-%d,%H:%M:%S')
-        screen_handler = self.logging.StreamHandler()
-        screen_handler.setFormatter(formatter)
-        self.logging.getLogger().addHandler(screen_handler)
+            ,level=self.logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
+        # formatter = self.logging.Formatter(fmt='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
+        #                       datefmt='%Y-%m-%d,%H:%M:%S')
 
+        screen_handler = self.logging.StreamHandler()
+        screen_handler.setFormatter(self.CustomFormatter())
+        self.logging.getLogger().addHandler(screen_handler)
 
         regex = r'Verification( +)=(. +.*)'
         self.verification_regex = self.re.compile(regex, self.re.IGNORECASE)
@@ -49,14 +73,16 @@ class Tester:
         self.reset_counter = 0
 
         self.run_counter = 0
-        self.duration_min_total = 0
-        self.sdc_counter = 0     
+        self.effective_total_elapsed_minutes = 0
+        self.sdc_counter = 0 
+        self.experiment_total_elapsed_sec = 0.0
+        self.experiment_start_time = self.time()    
 
         self.first_boot = True
 
         # CONSTANTS
         # check https://github.com/gtcasl/hpc-benchmarks/blob/master/NPB3.3/NPB3.3-MPI/
-        self.benchmarks_list = ["MG", "CG", "CG", "IS", "LU", "EP"]
+        self.benchmarks_list = ["MG", "CG", "FT", "IS", "LU", "EP"]
         self.benchmark_commands = {
             "MG" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/mg.A.8',
             "CG" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/cg.A.8',
@@ -103,20 +129,28 @@ class Tester:
      
         self.CURRENT_BENCHMARK_ID = "MG"
         self.CURRENT_VOLTAGE_ID = "V980"
+        self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = 100 
         self.TIMEOUT_SCALE_BENCHMARK = 2.0
         self.TIMEOUT_SCALE_BOOT = 1.1
         self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.0
         self.TIMEOUT_SCALE_VOLTAGE = 1.2
         self.RESET_AFTER_CONCECUTIVE_ERRORS = 2
         # The DUT power cycles after (RESET_AFTER_CONCECUTIVE_ERRORS + 1)
-
+        
         # Measurements with LU / V910
         self.CURRENT_PMD_THRESHOLD = 16.5 #15.28 
         self.CURRENT_SOC_THRESHOLD = 8.50 #7.97
+        self.POWER_DIMM1_THRESHOLD = 9.0 #6.745
         self.TEMP_PMD_THRESHOLD = 75 #63
         self.TEMP_SOC_THRESHOLD = 75 #60 
         self.TEMP_DIMM1_THRESHOLD = 75 #64
-        self.POWER_DIMM1_THRESHOLD = 9.0 #6.745
+
+        self.CURRENT_PMD_THRESHOLD_SCALE = 1.02
+        self.CURRENT_SOC_THRESHOLD_SCALE = 1.02
+        self.POWER_DIMM1_THRESHOLD_SCALE = 1.02
+        self.TEMP_PMD_THRESHOLD_SCALE = 1.1
+        self.TEMP_SOC_THRESHOLD_SCALE = 1.1
+        self.TEMP_DIMM1_THRESHOLD_SCALE = 1.1
 
         self.current_pmd_threshold_max = 0 
         self.current_soc_threshold_max = 0 
@@ -133,13 +167,13 @@ class Tester:
         self.TARGET_PORT = 18861 
 
         #DEBUG
-        self.DISABLE_RESET = True
+        self.DISABLE_RESET = False
+        self.SAVE_THRESHOLDS = True
 
         #DON'T TOUCH
 
         self.BENCHMARK_COMMAND = self.benchmark_commands[self.CURRENT_BENCHMARK_ID]
         self.COMMAND_VOLTAGE = self.voltage_commands[self.CURRENT_VOLTAGE_ID]
-        
         self.BOOT_TIMEOUT_SEC = round(self.timeouts["BOOT"] * self.TIMEOUT_SCALE_BOOT)
         self.VOLTAGE_CONFIG_TIMEOUT = round(self.timeouts[self.CURRENT_VOLTAGE_ID] * self.TIMEOUT_SCALE_VOLTAGE)
         self.BENCHMARK_TIMEOUT = round(self.timeouts[self.CURRENT_BENCHMARK_ID] * self.TIMEOUT_SCALE_BENCHMARK)
@@ -151,7 +185,49 @@ class Tester:
         self.VID = '0403'
         self.PID = '6001'
         self.SERIAL_NUM = 'A50285BI'
+    
+    def _update(self):
+        self.BENCHMARK_COMMAND = self.benchmark_commands[self.CURRENT_BENCHMARK_ID]
+        self.COMMAND_VOLTAGE = self.voltage_commands[self.CURRENT_VOLTAGE_ID]
+        self.BOOT_TIMEOUT_SEC = round(self.timeouts["BOOT"] * self.TIMEOUT_SCALE_BOOT)
+        self.VOLTAGE_CONFIG_TIMEOUT = round(self.timeouts[self.CURRENT_VOLTAGE_ID] * self.TIMEOUT_SCALE_VOLTAGE)
+        self.BENCHMARK_TIMEOUT = round(self.timeouts[self.CURRENT_BENCHMARK_ID] * self.TIMEOUT_SCALE_BENCHMARK)
+        self.BENCHMARK_COLD_CACHE_TIMEOUT = round(self.timeouts[self.CURRENT_BENCHMARK_ID] \
+            * self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK)
+        self.DMESG_TIMEOUT = 10
 
+        self.first_boot = True
+        self.current_pmd_threshold_max = 0 
+        self.current_soc_threshold_max = 0 
+        self.temp_pmd_threshold_max = 0 
+        self.temp_soc_threshold_max = 0 
+        self.temp_dimm1_threshold_max = 0
+        self.power_dimm1_threshold_max = 0
+
+        self.power_cycle_counter = 0
+        self.reset_counter = 0
+
+        self.run_counter = 0
+        self.effective_total_elapsed_minutes = 0
+        self.sdc_counter = 0 
+        self.experiment_total_elapsed_sec = 0.0
+        self.experiment_start_time = self.time()    
+
+        self.restore_thresholds()    
+
+    def set_benchmark_voltage_id(self, id_str, voltage_id_str):
+        self.logging.warning("Setting CURRENT_BENCHMARK_ID = " + id_str)
+        self.CURRENT_BENCHMARK_ID = id_str
+        self.logging.warning("Setting CURRENT_VOLTAGE_ID = " + voltage_id_str)
+        self.CURRENT_VOLTAGE_ID = voltage_id_str
+        self._update()
+
+    def set_finish_after_effective_minutes(self, finish_after_effective_min):
+            self.logging.warning("Setting RUNS_PER_TEST = " + str(finish_after_effective_min))
+            self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = finish_after_effective_min
+    
+    def reset_disable(self, val):
+        self.DISABLE_RESET = val
 
     def find_reset_uart(self, VID:str, PID:str, SERIAL_NUM:str):
         """This function finds the specific UART that is used for resetting and power cycling the XGENE-2
@@ -188,17 +264,14 @@ class Tester:
             if self.DISABLE_RESET == False:
                 return ser
             else:
-                self.logging.critical("self.DISABLE_RESET = " + str(self.DISABLE_RESET))
+                self.logging.warning("self.DISABLE_RESET = " + str(self.DISABLE_RESET))
                 return None
         except Exception:
             self.logging.warning(self.traceback.format_exc())
             if port == None:
-                self.logging.critical("Cannot find reset UART")
+                self.logging.warning("Cannot find reset UART")
                 pass
             
-    
-    
-
     def power_cycle(self, count_enable):
         self.first_boot = True
         ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
@@ -253,7 +326,7 @@ class Tester:
         healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
             self.remote_execute(self.COMMAND_VOLTAGE, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1) 
         if return_code != '0':
-            self.logging.critical('Return error code: ' + return_code + ' Configuring voltage: ' + self.COMMAND_VOLTAGE)
+            self.logging.warning('Return error code: ' + return_code + ' Configuring voltage: ' + self.COMMAND_VOLTAGE)
 
     def remote_alive(self, boot_timeout_sec: int):
         start = self.timeit.default_timer()
@@ -280,7 +353,7 @@ class Tester:
             except:
                 conn_count_thresh -= 1 
                 attemp_counter += 1
-                self.logging.critical('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
+                self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 self.sleep(sleep_sec_excep)
                 if conn_count_thresh <=0:
                     self.power_cycle(True)
@@ -314,13 +387,13 @@ class Tester:
                         if  execution_attempt_counter > self.EXECUTION_ATTEMPT:
                             self.reset_button()
                         else:
-                            self.logging.critical("Execution timeout. Attempt " + str(execution_attempt_counter))
+                            self.logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                         execution_attempt_counter += 1
                         
             except:
                 conn_count_thresh -= 1 
                 attemp_counter += 1
-                self.logging.critical('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
+                self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 self.sleep(sleep_sec_excep)
                 if conn_count_thresh <=0:
                     self.reset_button()
@@ -329,7 +402,7 @@ class Tester:
     def save_result(self, healthlog, run_counter, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff, correct):
         now = self.datetime.now() # current date and time
         result_date = now.strftime("%m_%d_%Y__%H_%M_%S")
-        result_file_name = 'results/result_' + result_date + '.json'
+        result_file_name = 'results/' + self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_" + result_date + '.json'
         result = {
                     "timestamp" : timestamp,
                     "run_command": run_command,
@@ -350,50 +423,80 @@ class Tester:
             self.json.dump(result, json_file)
             
     def save_state(self):
-        state_file = 'state/state.json'
+        filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
+        state_file = "./state/" + filename
         state = {
                     "reset_counter": str(self.reset_counter),
                     "power_cycle_counter" : str(self.power_cycle_counter) ,
-                    "duration_min_total" : str(self.duration_min_total), 
-                    "sdc_counter" : str(self.sdc_counter)
+                    "effective_total_elapsed_minutes" : str(self.effective_total_elapsed_minutes), 
+                    "sdc_counter" : str(self.sdc_counter),
+                    "run_counter" : str(self.run_counter),
+                    "experiment_total_elapsed_sec" : str(self.experiment_total_elapsed_sec)
         }
         try:
             with open(state_file, "w") as json_file:
                 self.json.dump(state, json_file)
-        except:
+        except Exception:
+            self.logging.error(self.traceback.format_exc())
             pass
 
     def restore_state(self):
-        state_file = 'state/state.json'
+        filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
+        state_file = "./state/" + filename
         try:
             with open(state_file, 'r') as json_file:
                 state =self.json.load(json_file)
                 self.reset_counter = int(state["reset_counter"])
                 self.power_cycle_counter = int(state["power_cycle_counter"])
-                self.duration_min_total = float(state["duration_min_total"])
+                self.effective_total_elapsed_minutes = float(state["effective_total_elapsed_minutes"])
                 self.sdc_counter = int(state["sdc_counter"])
-        except:
+                self.run_counter = int(state["run_counter"])
+                self.experiment_total_elapsed_sec = float(state["experiment_total_elapsed_sec"])
+        except Exception:
+            self.logging.error(state_file + " file not found") 
             pass
     
     def save_thresholds(self):
 
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
-
-        threshold_file = "config/" + filename
+        threshold_file = "./config/" + filename
 
         threshold = {
             "current_pmd_threshold_max": str(self.current_pmd_threshold_max),
-            "power_cycle_counter" : str(self.current_soc_threshold_max) ,
-            "current_soc_threshold_max" : str(self.power_dimm1_threshold_max), 
+            "current_soc_threshold_max" : str(self.current_soc_threshold_max) ,
+            "power_dimm1_threshold_max" : str(self.power_dimm1_threshold_max), 
             "temp_pmd_threshold_max" : str(self.temp_pmd_threshold_max),
             "temp_soc_threshold_max" : str(self.temp_soc_threshold_max),
-            "dimm1_threshold_max" : str(self.temp_dimm1_threshold_max)   
+            "temp_dimm1_threshold_max" : str(self.temp_dimm1_threshold_max)   
         }
-
         try:
             with open(threshold_file, "w") as json_file:
                 self.json.dump(threshold, json_file)
-        except:
+        except Exception:
+            self.logging.error(self.traceback.format_exc())
+            pass
+    
+    def restore_thresholds(self):
+        filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
+        threshold_file = "./config/" + filename
+        try:
+            with open(threshold_file, 'r') as json_file:
+                threshold =self.json.load(json_file)
+                self.CURRENT_PMD_THRESHOLD = float(threshold["current_pmd_threshold_max"]) * self.CURRENT_PMD_THRESHOLD_SCALE
+                self.CURRENT_SOC_THRESHOLD = float(threshold["current_soc_threshold_max"]) * self.CURRENT_SOC_THRESHOLD_SCALE
+                self.POWER_DIMM1_THRESHOLD = float(threshold["power_dimm1_threshold_max"]) * self.POWER_DIMM1_THRESHOLD_SCALE
+                self.TEMP_PMD_THRESHOLD = self.math.ceil(int(threshold["temp_pmd_threshold_max"]) * self.TEMP_PMD_THRESHOLD_SCALE)
+                self.TEMP_SOC_THRESHOLD = self.math.ceil(int(threshold["temp_soc_threshold_max"]) * self.TEMP_SOC_THRESHOLD_SCALE)
+                self.TEMP_DIMM1_THRESHOLD = self.math.ceil(int(threshold["temp_dimm1_threshold_max"]) * self.TEMP_DIMM1_THRESHOLD_SCALE)
+                
+                self.logging.warning("Setting CURRENT_PMD_THRESHOLD = " + str(self.CURRENT_PMD_THRESHOLD))
+                self.logging.warning("Setting CURRENT_SOC_THRESHOLD = " + str(self.CURRENT_SOC_THRESHOLD))
+                self.logging.warning("Setting POWER_DIMM1_THRESHOLD = " + str(self.POWER_DIMM1_THRESHOLD))
+                self.logging.warning("Setting TEMP_PMD_THRESHOLD = " + str(self.TEMP_PMD_THRESHOLD))
+                self.logging.warning("Setting TEMP_SOC_THRESHOLD = " + str(self.TEMP_SOC_THRESHOLD))
+                self.logging.warning("Setting TEMP_DIMM1_THRESHOLD = " + str(self.TEMP_DIMM1_THRESHOLD))
+        except Exception:
+            self.logging.error(threshold_file + " file not found") 
             pass
 
     def is_result_correct(self, result):
@@ -406,8 +509,8 @@ class Tester:
             else:
                 return False
         except Exception:
-            self.logging.warning("Regexpr output: " + answer)
-            self.logging.warning(self.traceback.format_exc())
+            self.logging.error("Regexpr output: " + answer)
+            self.logging.error(self.traceback.format_exc())
             return False
     
     
@@ -524,7 +627,8 @@ class Tester:
             if temp_dimm > self.temp_dimm1_threshold_max:
                 self.temp_dimm1_threshold_max = temp_dimm
 
-            self.save_thresholds()
+            if self.SAVE_THRESHOLDS == True:
+                self.save_thresholds()
 
             max_power_curr_volt_temp_str = "MONITOR(MAX): PMD = " + str(self.current_pmd_threshold_max) + "(A)/" + str(voltage_pmd) +"(V)/" \
                 + str(self.temp_pmd_threshold_max)+"(C) | SoC = " + str(self.current_soc_threshold_max) + "(A)/" + str(self.temp_soc_threshold_max)+"(C)" \
@@ -548,10 +652,9 @@ class Tester:
         except Exception:
             self.logging.warning(self.traceback.format_exc())
             pass
-
-
+    
     def experiment_start(self):
-
+        experiment_elapsed_sec_str = ""
         self.logging.info('Starting... Benchmark: ' + self.BENCHMARK_COMMAND)
         
         self.power_cycle(False)
@@ -566,17 +669,17 @@ class Tester:
                 
                 if self.first_boot == True:
                     self.first_boot = False
-                    healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
+                    healthlog, run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff = \
                     self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
                 else:    
-                    healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
+                    healthlog, run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff = \
                         self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
                 
                 self.run_counter += 1
-                self.duration_min_total += (float(duration_ms)/1000)/60
-                duration_min_total_str = str("{:.2f}".format(round(self.duration_min_total, 2)))
+                self.effective_total_elapsed_minutes += (float(effective_run_elapsed_ms)/1000)/60
+                effective_elapsed_min = str("{:.2f}".format(round(self.effective_total_elapsed_minutes, 2)))
                 correct = self.is_result_correct(stdoutput)
-                self.save_result(healthlog, str(self.run_counter), run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff, str(correct))
+                self.save_result(healthlog, str(self.run_counter), run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff, str(correct))
                 if correct == False:
                     self.logging.error("Result SDC detected")
                     self.logging.error("Error_consecutive: " + str(error_consecutive))
@@ -585,12 +688,21 @@ class Tester:
 
                 else: 
                     error_consecutive = 0
-                    log_str = "Run_counter: " + str(self.run_counter) + " | Correct: " + str(correct) + " | Duration_ms: " + duration_ms        
-                    self.logging.info(log_str)
-
-                log_str = "Resets: " + str(self.reset_counter) + " | PowerCycles: " + str(self.power_cycle_counter)  \
-                    + " | Total_minutes: " + str(duration_min_total_str) +  " | SDCs: " +  str(self.sdc_counter)
+                
+                
+                log_str = "Run: " + str(self.run_counter) + " | Correct: " + str(correct) + " | Effect-run-elapsed(ms): " + effective_run_elapsed_ms \
+                    + " | timestamp: " + timestamp            
                 self.logging.info(log_str)
+
+                
+                log_str = "Resets: " + str(self.reset_counter) + " | PowerCycles: " + str(self.power_cycle_counter) \
+                    + "Effective-elapsed(min): " + str(effective_elapsed_min) +  " | SDCs: " +  str(self.sdc_counter)
+                self.logging.info(log_str)
+
+                self.experiment_total_elapsed_sec = (self.time() - self.experiment_start_time)
+                experiment_elapsed_sec_str = str(self.timedelta(seconds=self.experiment_total_elapsed_sec))
+                self.logging.info("Total elapsed: "+ experiment_elapsed_sec_str + \
+                    " (BENCH_ID = " + self.CURRENT_BENCHMARK_ID + " | VOLTAGE_ID = " + self.CURRENT_VOLTAGE_ID + ")")
 
                 self.parse_monitor_data(power, voltage, temp)
             
@@ -604,19 +716,39 @@ class Tester:
 
                 self.save_state()
 
+                if self.effective_total_elapsed_minutes > self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES:
+                    break
+                
+            self.logging.info("Finished. Total elapsed: "+ experiment_elapsed_sec_str + \
+                    " (BENCH_ID = " + self.CURRENT_BENCHMARK_ID + " | VOLTAGE_ID = " + self.CURRENT_VOLTAGE_ID + ")")
+            
         except Exception:
             self.logging.warning(self.traceback.format_exc())
             pass
-
+    
 def main():
     test = Tester()
-    test.experiment_start()
+    #benchmarks_list = ["MG", "CG", "FT", "IS", "LU", "EP"]
+    #voltage_list = ["V980", "V960", "V940", "V930", "V910"]
+    benchmarks_list = ["LU", "EP"]
+    voltage_list = ["V960", "V940", "V930"] #"V980"
+    effective_total_elapsed_hours = 0.5
+    effective_total_elapsed_minutes = 60 * effective_total_elapsed_hours
+    for benchmark_id in benchmarks_list:
+        for voltage_id in voltage_list:
+            test.reset_disable(False)
+            test.set_benchmark_voltage_id(benchmark_id, voltage_id)
+            test.set_finish_after_effective_minutes(effective_total_elapsed_minutes)
+            test.experiment_start()
     #test.get_timeouts()
     #test.power_button()
 if __name__ == '__main__':
     try:
         print("Press Ctrl-C to terminate") 
         proc = main()
+    except Exception as exection:
+            print(exection)
+            pass
     except KeyboardInterrupt:
         print('Exiting program')
         sys.exit

@@ -1,5 +1,6 @@
 host/venv/
 target/venv/
 target/.pytest_cache/
-host/results/
-host/logs/
+host/results/*
+host/logs/*
+host/deactivate/
