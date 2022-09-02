@@ -696,7 +696,7 @@ class Tester:
 
                 
                 log_str = "Resets: " + str(self.reset_counter) + " | PowerCycles: " + str(self.power_cycle_counter) \
-                    + "Effective-elapsed(min): " + str(effective_elapsed_min) +  " | SDCs: " +  str(self.sdc_counter)
+                    + " | Effective-elapsed(min): " + str(effective_elapsed_min) +  " | SDCs: " +  str(self.sdc_counter)
                 self.logging.info(log_str)
 
                 self.experiment_total_elapsed_sec = (self.time() - self.experiment_start_time)
