@@ -728,14 +728,11 @@ class Tester:
     
 def main():
     test = Tester()
-    #benchmarks_list = ["MG", "CG", "FT", "IS", "LU", "EP"]
-    #voltage_list = ["V980", "V960", "V940", "V930", "V910"]
-    benchmarks_list = ["LU", "EP"]
-    voltage_list = ["V960", "V940", "V930"] #"V980"
-    effective_total_elapsed_hours = 0.5
-    effective_total_elapsed_minutes = 60 * effective_total_elapsed_hours
-    for benchmark_id in benchmarks_list:
-        for voltage_id in voltage_list:
+    benchmarks_list = ["LU", "EP", "MG", "FT", "IS", "CG"]
+    voltage_list = ["V980", "V960", "V940", "V930", "V910"]
+    effective_total_elapsed_minutes = 2 * 60 # 2 hours
+    for voltage_id in voltage_list:
+        for benchmark_id in benchmarks_list:
             test.reset_disable(False)
             test.set_benchmark_voltage_id(benchmark_id, voltage_id)
             test.set_finish_after_effective_minutes(effective_total_elapsed_minutes)
