@@ -12,6 +12,8 @@ from dataclasses import dataclass
 class ExecuteService(rpyc.Service):
     
     def __init__(self):
+        self.messages_file = '/var/log/messages'
+        self.healthlog_file = '/var/log/healthlog'
         pass
 
     def on_connect(self, conn):
@@ -66,26 +68,42 @@ class ExecuteService(rpyc.Service):
         return True
     
     def exposed_execute(self, run_command:str, dmesg_index:int):
-        print("Executing: " + run_command)
-        _, _, _, dmesg = self.sys_run("dmesg")
-        dmesg_diff = dmesg[dmesg_index: len(dmesg)]
-        duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command)
-        timestamp = self.get_timestamp() # current day and time
-        power = self.get_power()
-        temp = self.get_temp()
-        voltage = self.get_voltage()
-        freq = self.get_freq()
-        
-        healthlog_file = '/var/log/healthlog'
-        healthlog = ""
         try:
-            with open(healthlog_file, 'r') as f:
-                healthlog = f.read()
-        except Exception:
-            pass
+            print("Executing: " + run_command)
+            healthlog = "" 
+            timestamp = "" 
+            power = "" 
+            temp = "" 
+            voltage = "" 
+            freq = "" 
+            duration_ms = "" 
+            stdoutput = "" 
+            stderror = "" 
+            return_code = "" 
+            dmesg_diff = ""
+            messages = ""
+            try:
+                with open(self.messages_file, 'r') as f:
+                    messages = f.read()
+            except Exception:
+                pass
+            dmesg_diff = messages[dmesg_index: len(messages)]
+            duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command)
+            timestamp = self.get_timestamp() # current day and time
+            power = self.get_power()
+            temp = self.get_temp()
+            voltage = self.get_voltage()
+            freq = self.get_freq()
+            healthlog = ""
+            try:
+                with open(self.healthlog_file, 'r') as f:
+                    healthlog = f.read()
+            except Exception:
+                pass
+            return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
+        except Exception as exception:
+            return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
             
-        return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
-    
     def sys_run(self, cmd):
         t1 = datetime.now()
         process = subprocess.run([cmd], capture_output=True, shell=True)

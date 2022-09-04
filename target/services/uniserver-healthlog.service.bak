@@ -1,0 +1,11 @@
+[Unit]
+Description=Healthlog daemon
+After=uniserver.service
+
+[Service]
+Type=forking
+ExecStart=/usr/sbin/healthlogd
+ExecStop=/usr/sbin/healthlogd stop
+
+[Install]
+WantedBy=default.target
