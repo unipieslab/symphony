@@ -758,8 +758,8 @@ def main():
     effective_total_elapsed_minutes = 2 * 60 # 2 hours
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
-            test.debug_reset_disable()
-            test.debug_set_high_timeouts()
+            # test.debug_reset_disable()
+            # test.debug_set_high_timeouts()
             test.set_benchmark_voltage_id(benchmark_id, voltage_id)
             test.set_finish_after_effective_minutes(effective_total_elapsed_minutes)
             test.experiment_start()
