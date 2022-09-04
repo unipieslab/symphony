@@ -4,3 +4,6 @@ target/.pytest_cache/
 host/results/*
 host/logs/*
 host/deactivate/
+Python-3.9.1/
+Python-3.9.1.tgz
+host/state

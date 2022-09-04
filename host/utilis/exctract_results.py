@@ -21,8 +21,8 @@ regex = r'Verification( +)=(. +.*)'
 verification_regex = re.compile(regex, re.IGNORECASE)
         
 file = '/home/dag/wsp/unipi/triumf/symphony/host/results/result_09_02_2022__10_48_25.json'
-file = '/home/eslab/wsp/unipi/triumf/symphony/host/results/result_09_02_2022__10_54_39.json'
-
+file = '/home/eslab/wsp/unipi/triumf/symphony/host/results/MG_V980_09_04_2022__17_11_47.json'
+file = '/home/eslab/wsp/unipi/triumf/symphony/host/results/MG_V980_09_04_2022__17_11_44.json'
 with open(file, 'r') as f:
     result = json.load(f)
     stdoutput = result["dmesg_diff"]

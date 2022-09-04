@@ -67,8 +67,6 @@ class Tester:
         regex = r'.*?PMD=(.*),.*?=(.*),.*?=(.*)'
         self.temp_regex = self.re.compile(regex, self.re.IGNORECASE)
 
-        self.first_dmesg = True
-
         self.power_cycle_counter = 0
         self.reset_counter = 0
 
@@ -79,6 +77,8 @@ class Tester:
         self.experiment_start_time = self.time()    
 
         self.first_boot = True
+        self.dmesg_index =0
+        self.dmesg_diff = ""
 
         # CONSTANTS
         # check https://github.com/gtcasl/hpc-benchmarks/blob/master/NPB3.3/NPB3.3-MPI/
@@ -197,6 +197,8 @@ class Tester:
         self.DMESG_TIMEOUT = 10
 
         self.first_boot = True
+        self.dmesg_index = 1
+        self.dmesg_diff = ""
         self.current_pmd_threshold_max = 0 
         self.current_soc_threshold_max = 0 
         self.temp_pmd_threshold_max = 0 
@@ -226,8 +228,8 @@ class Tester:
             self.logging.warning("Setting RUNS_PER_TEST = " + str(finish_after_effective_min))
             self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = finish_after_effective_min
     
-    def reset_disable(self, val):
-        self.DISABLE_RESET = val
+    def debug_reset_disable(self):
+        self.DISABLE_RESET = True
 
     def find_reset_uart(self, VID:str, PID:str, SERIAL_NUM:str):
         """This function finds the specific UART that is used for resetting and power cycling the XGENE-2
@@ -271,17 +273,34 @@ class Tester:
             if port == None:
                 self.logging.warning("Cannot find reset UART")
                 pass
-            
+    def debug_set_high_timeouts(self):
+        self.timeouts = {
+            "BOOT" : 300, 
+            "MG" : 300,
+            "CG" : 300,
+            "FT" : 300, 
+            "IS" : 300,
+            "LU" : 300,
+            "EP" : 300,
+            "V980" : 300, 
+            "V960" : 300,
+            "V940" : 300,
+            "V930" : 300,
+            "V910" : 300
+        }
+        self.logging.warning("debug_set_high_timeouts")
+        
     def power_cycle(self, count_enable):
         self.first_boot = True
+        self.dmesg_index = 1
         ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
         if ser != None:
             ser.dtr = True
-            self.sleep(2)
+            self.sleep(1)
             ser.dtr = False
-            self.sleep(5)
+            self.sleep(3)
             ser.dtr = True
-            self.sleep(2)
+            self.sleep(1)
             ser.dtr = False
             ser.close()
         if count_enable == True:
@@ -294,6 +313,7 @@ class Tester:
 
     def power_button(self):
         self.first_boot = True
+        self.dmesg_index = 1
         ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
         if ser != None:
             ser.dtr = True
@@ -304,6 +324,7 @@ class Tester:
 
     def reset_button(self):
         self.first_boot = True
+        self.dmesg_index = 1
         ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
         if ser != None:
             ser.rts = True
@@ -417,7 +438,8 @@ class Tester:
                     "stdoutput" : stdoutput,
                     "stderror" : stderror,
                     "dmesg_diff" : dmesg_diff,
-                    "healthlog" : healthlog
+                    "healthlog" : healthlog,
+                    "dmesg_index" : str(self.dmesg_index)
         }
         with open(result_file_name, "w") as json_file:
             self.json.dump(result, json_file)
@@ -453,7 +475,7 @@ class Tester:
                 self.run_counter = int(state["run_counter"])
                 self.experiment_total_elapsed_sec = float(state["experiment_total_elapsed_sec"])
         except Exception:
-            self.logging.error(state_file + " file not found") 
+            self.logging.warning(state_file + " file not found") 
             pass
     
     def save_thresholds(self):
@@ -496,7 +518,7 @@ class Tester:
                 self.logging.warning("Setting TEMP_SOC_THRESHOLD = " + str(self.TEMP_SOC_THRESHOLD))
                 self.logging.warning("Setting TEMP_DIMM1_THRESHOLD = " + str(self.TEMP_DIMM1_THRESHOLD))
         except Exception:
-            self.logging.error(threshold_file + " file not found") 
+            self.logging.warning(threshold_file + " file not found") 
             pass
 
     def is_result_correct(self, result):
@@ -515,7 +537,6 @@ class Tester:
     
     
     def get_timeouts(self):
-
         try:
             VID = '0403'
             PID = '6001'
@@ -671,10 +692,14 @@ class Tester:
                     self.first_boot = False
                     healthlog, run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff = \
                     self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
-                else:    
+                    self.dmesg_diff = dmesg_diff
+                else:
+                    self.dmesg_index += len(self.dmesg_diff)    
                     healthlog, run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff = \
-                        self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
-                
+                        self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, self.dmesg_index)
+                    self.dmesg_diff = dmesg_diff
+                   
+                print(str(self.dmesg_index))
                 self.run_counter += 1
                 self.effective_total_elapsed_minutes += (float(effective_run_elapsed_ms)/1000)/60
                 effective_elapsed_min = str("{:.2f}".format(round(self.effective_total_elapsed_minutes, 2)))
@@ -728,12 +753,13 @@ class Tester:
     
 def main():
     test = Tester()
-    benchmarks_list = ["LU", "EP", "MG", "FT", "IS", "CG"]
-    voltage_list = ["V980", "V960", "V940", "V930", "V910"]
+    benchmarks_list = ["MG", "LU", "EP", "FT", "IS", "CG"]
+    voltage_list = ["V980", "V960", "V940", "V930"]
     effective_total_elapsed_minutes = 2 * 60 # 2 hours
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
-            test.reset_disable(False)
+            test.debug_reset_disable()
+            test.debug_set_high_timeouts()
             test.set_benchmark_voltage_id(benchmark_id, voltage_id)
             test.set_finish_after_effective_minutes(effective_total_elapsed_minutes)
             test.experiment_start()
