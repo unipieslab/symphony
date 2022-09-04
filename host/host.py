@@ -129,7 +129,8 @@ class Tester:
      
         self.CURRENT_BENCHMARK_ID = "MG"
         self.CURRENT_VOLTAGE_ID = "V980"
-        self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = 100 
+        self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = 100
+        self.FINISH_AFTER_TOTAL_ERRORS = 100 
         self.TIMEOUT_SCALE_BENCHMARK = 2.0
         self.TIMEOUT_SCALE_BOOT = 1.1
         self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.0
@@ -224,9 +225,11 @@ class Tester:
         self.CURRENT_VOLTAGE_ID = voltage_id_str
         self._update()
 
-    def set_finish_after_effective_minutes(self, finish_after_effective_min):
+    def set_finish_after_effective_minutes_or_total_errors(self, finish_after_effective_min, finish_after_total_errors):
             self.logging.warning("Setting RUNS_PER_TEST = " + str(finish_after_effective_min))
             self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = finish_after_effective_min
+            self.FINISH_AFTER_TOTAL_ERRORS = finish_after_total_errors
+            
     
     def debug_reset_disable(self):
         self.DISABLE_RESET = True
@@ -741,7 +744,8 @@ class Tester:
 
                 self.save_state()
 
-                if self.effective_total_elapsed_minutes > self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES:
+                if ((self.effective_total_elapsed_minutes > self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES) \
+                    or ((self.reset_counter + self.power_cycle_counter) > self.FINISH_AFTER_TOTAL_ERRORS)):
                     break
                 
             self.logging.info("Finished. Total elapsed: "+ experiment_elapsed_sec_str + \
@@ -755,13 +759,15 @@ def main():
     test = Tester()
     benchmarks_list = ["MG", "LU", "EP", "FT", "IS", "CG"]
     voltage_list = ["V980", "V960", "V940", "V930"]
-    effective_total_elapsed_minutes = 2 * 60 # 2 hours
+    finsh_after_effective_total_elapsed_minutes = 2 * 60 # 2 hours
+    finish_after_total_errors = 100
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
-            # test.debug_reset_disable()
-            # test.debug_set_high_timeouts()
+            #test.debug_reset_disable()
+            #test.debug_set_high_timeouts()
             test.set_benchmark_voltage_id(benchmark_id, voltage_id)
-            test.set_finish_after_effective_minutes(effective_total_elapsed_minutes)
+            test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
+                finish_after_total_errors)
             test.experiment_start()
     #test.get_timeouts()
     #test.power_button()
