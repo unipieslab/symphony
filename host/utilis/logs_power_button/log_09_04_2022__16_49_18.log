@@ -1,0 +1,3 @@
+2022-09-04 16:49:18.567 INFO     Opening serial port:/dev/ttyUSB0 @19200
+2022-09-04 16:49:18.568 WARNING  power_button pressed
+2022-09-04 16:49:19.570 WARNING  power_button reseased

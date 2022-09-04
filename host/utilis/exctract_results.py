@@ -21,7 +21,7 @@ regex = r'Verification( +)=(. +.*)'
 verification_regex = re.compile(regex, re.IGNORECASE)
         
 file = '/home/dag/wsp/unipi/triumf/symphony/host/results/result_09_02_2022__10_48_25.json'
-file = '/home/dag/wsp/unipi/triumf/symphony/host/results/EP_V960_09_02_2022__19_49_07.json'
+file = '/home/eslab/wsp/unipi/triumf/symphony/host/results/result_09_02_2022__10_54_39.json'
 
 with open(file, 'r') as f:
     result = json.load(f)
