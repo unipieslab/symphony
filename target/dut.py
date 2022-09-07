@@ -82,11 +82,12 @@ class ExecuteService(rpyc.Service):
             return_code = "" 
             dmesg_diff = ""
             messages = ""
-            try:
-                with open(self.messages_file, 'r') as f:
-                    messages = f.read()
-            except Exception:
-                pass
+            # try:
+            #     with open(self.messages_file, 'r') as f:
+            #         messages = f.read()
+            # except Exception:
+            #     pass
+            _, _, _, messages = self.sys_run("dmesg")
             dmesg_diff = messages[dmesg_index: len(messages)]
             duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command)
             timestamp = self.get_timestamp() # current day and time
