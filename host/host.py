@@ -113,7 +113,7 @@ class Tester:
 
         #HDD
         self.timeouts = {
-            "BOOT" : 102, 
+            "BOOT" : 80, 
             "MG" : 3,
             "CG" : 3,
             "FT" : 50, 
@@ -169,7 +169,7 @@ class Tester:
 
         #DEBUG
         self.DISABLE_RESET = False
-        self.SAVE_THRESHOLDS = True
+        self.SAVE_THRESHOLDS = False
 
         #DON'T TOUCH
 
@@ -702,7 +702,6 @@ class Tester:
                         self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, self.dmesg_index)
                     self.dmesg_diff = dmesg_diff
                    
-                print(str(self.dmesg_index))
                 self.run_counter += 1
                 self.effective_total_elapsed_minutes += (float(effective_run_elapsed_ms)/1000)/60
                 effective_elapsed_min = str("{:.2f}".format(round(self.effective_total_elapsed_minutes, 2)))
@@ -757,9 +756,9 @@ class Tester:
     
 def main():
     test = Tester()
+    voltage_list = ["V930", "V940","V960","V980"]
     benchmarks_list = ["MG", "LU", "EP", "FT", "IS", "CG"]
-    voltage_list = ["V980", "V960", "V940", "V930"]
-    finsh_after_effective_total_elapsed_minutes = 2 * 60 # 2 hours
+    finsh_after_effective_total_elapsed_minutes = 90 # minutes
     finish_after_total_errors = 100
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:

@@ -14,7 +14,7 @@ now = datetime.now() # current date and time
 log_date = now.strftime("%m_%d_%Y__%H_%M_%S")
 log_file_name = '/home/eslab/wsp/unipi/triumf/symphony/host/utilis/logs_power_button/log_' + log_date + '.log'
 # logging.INFO
-logging.basicConfig(filename=log_file_name, encoding='utf-8', format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s' \
+logging.basicConfig(filename=log_file_name, format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s' \
     ,level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
 formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
                       datefmt='%Y-%m-%d,%H:%M:%S')

@@ -1,3 +1,5 @@
 #! /bin/bash
-python3 press_button.py
+source venv/bin/activate
+python press_button.py
+deactivate
 
