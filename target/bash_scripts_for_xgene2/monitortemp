@@ -1,0 +1,14 @@
+#!/bin/bash
+
+# Usage: ./monitortemp [file]
+
+file=$1
+sleep 1
+cnt=0
+echo "Sec,PMD,SoC,DIMM" > ${file}
+while true;
+do
+	printf "%d, %d, %d, %d\n" $cnt $(i2cget -y 1 0x2f 0x13 w) $(i2cget -y 1 0x2f 0x11 w) $(i2cget -y 1 0x2f 0x12 w) >> ${file}
+	sleep 1;
+	let cnt=cnt+1;
+done;

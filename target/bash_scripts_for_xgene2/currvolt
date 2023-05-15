@@ -1,0 +1,11 @@
+#!/bin/bash
+
+I2C_IN=1
+i2cget -y ${I2C_IN} 0x2f 0x34 w &>/dev/null
+[ $? -ne 0 ] && I2C_IN=0
+
+printf "PMD: %d\n" $(i2cget -y ${I2C_IN} 0x2f 0x34 w)
+printf "SoC: %d\n" $(i2cget -y ${I2C_IN} 0x2f 0x35 w)
+#printf "DIMM1: %d\n" $(i2cget -y ${I2C_IN} 0x2f 0x36 w)
+#printf "DIMM2: %d\n" $(i2cget -y ${I2C_IN} 0x2f 0x37 w)
+#printf "RR: %d\n" $(i2cget -y ${I2C_IN} 0x2f 0x40 w)
