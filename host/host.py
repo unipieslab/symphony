@@ -41,6 +41,11 @@ class Tester:
 
 
     def __init__(self):
+        """
+        The _update method updates various attributes of the Tester class
+        based on the current benchmark ID and voltage ID. It also resets certain
+        attributes that are specific to a single run of the test.
+        """
         #Global variables
         self.now = self.datetime.now() # current date and time
         self.log_date = self.now.strftime("%m_%d_%Y__%H_%M_%S")
@@ -188,6 +193,11 @@ class Tester:
         self.SERIAL_NUM = 'A50285BI'
     
     def _update(self):
+        """
+        The _update method updates various attributes of the Tester class
+        based on the current benchmark ID and voltage ID. It also resets certain
+        attributes that are specific to a single run of the test.
+        """
         self.BENCHMARK_COMMAND = self.benchmark_commands[self.CURRENT_BENCHMARK_ID]
         self.COMMAND_VOLTAGE = self.voltage_commands[self.CURRENT_VOLTAGE_ID]
         self.BOOT_TIMEOUT_SEC = round(self.timeouts["BOOT"] * self.TIMEOUT_SCALE_BOOT)
@@ -219,6 +229,12 @@ class Tester:
         self.restore_thresholds()    
 
     def set_benchmark_voltage_id(self, id_str, voltage_id_str):
+        """
+        Set the benchmark and voltage IDs to the provided strings, and log these changes.
+        Args:
+            id_str (str): The new benchmark ID to set.
+            voltage_id_str (str): The new voltage ID to set.
+        """
         self.logging.warning("Setting CURRENT_BENCHMARK_ID = " + id_str)
         self.CURRENT_BENCHMARK_ID = id_str
         self.logging.warning("Setting CURRENT_VOLTAGE_ID = " + voltage_id_str)
@@ -232,19 +248,41 @@ class Tester:
             
     
     def debug_reset_disable(self):
+        """
+        Disable the reset functionality for debugging purposes.
+        """
         self.DISABLE_RESET = True
+    def debug_set_high_timeouts(self):
+        """
+        Set high timeouts for debugging purposes.
+        """
+        self.timeouts = {
+            "BOOT" : 300, 
+            "MG" : 300,
+            "CG" : 300,
+            "FT" : 300, 
+            "IS" : 300,
+            "LU" : 300,
+            "EP" : 300,
+            "V980" : 300, 
+            "V960" : 300,
+            "V940" : 300,
+            "V930" : 300,
+            "V910" : 300
+        }
+        self.logging.warning("debug_set_high_timeouts")
 
     def find_reset_uart(self, VID:str, PID:str, SERIAL_NUM:str):
-        """This function finds the specific UART that is used for resetting and power cycling the XGENE-2
-
+        """
+        Find the UART port which is used for resetting and power cycling the TARGET BOARD. 
+        The UART is identified based on its vendor ID, product ID, and serial number.
         Args:
-            VID (str): USB2UART Vendor ID
-            PID (str): USB2UART Product ID
-            SERIAL_NUM (str): Self explained
-
+            VID (str): The vendor ID of the UART.
+            PID (str): The product ID of the UART.
+            SERIAL_NUM (str): The serial number of the UART.
         Returns:
-            serial.Serial(): Returns the uart driver
-        """    
+            serial.Serial or None: The UART driver, or None if it couldn't be found or if resets are disabled.
+        """
         port = None
         device_list = self.list_ports.comports()
         for device in device_list:
@@ -276,24 +314,13 @@ class Tester:
             if port == None:
                 self.logging.warning("Cannot find reset UART")
                 pass
-    def debug_set_high_timeouts(self):
-        self.timeouts = {
-            "BOOT" : 300, 
-            "MG" : 300,
-            "CG" : 300,
-            "FT" : 300, 
-            "IS" : 300,
-            "LU" : 300,
-            "EP" : 300,
-            "V980" : 300, 
-            "V960" : 300,
-            "V940" : 300,
-            "V930" : 300,
-            "V910" : 300
-        }
-        self.logging.warning("debug_set_high_timeouts")
         
     def power_cycle(self, count_enable):
+        """
+        Power cycle the TARGET BOARD, and optionally increment the power cycle counter.
+        Args:
+            count_enable (bool): Whether to increment the power cycle counter.
+        """
         self.first_boot = True
         self.dmesg_index = 1
         ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
@@ -315,6 +342,9 @@ class Tester:
             
 
     def power_button(self):
+        """
+        Simulate pressing the power button on the TARGET BOARD.
+        """
         self.first_boot = True
         self.dmesg_index = 1
         ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
@@ -326,6 +356,10 @@ class Tester:
             ser.close()
 
     def reset_button(self):
+        """
+        Simulate pressing the reset button on the TARGET BOARD, 
+        and increment the reset counter.
+        """
         self.first_boot = True
         self.dmesg_index = 1
         ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
@@ -341,11 +375,19 @@ class Tester:
             self.set_voltage()
             
     def get_dmesg(self):
+        """
+        Get the dmesg logs from the TARGET BOARD.
+        Returns:
+            str: The dmesg logs.
+        """
         run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg = \
             self.remote_execute("date", self.DMESG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1) 
         return dmesg
 
     def set_voltage(self):
+        """
+        Set the voltage of the TARGET BOARD to the value specified by COMMAND_VOLTAGE.
+        """
         self.logging.info('Configuring voltage: ' + self.COMMAND_VOLTAGE)
         healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
             self.remote_execute(self.COMMAND_VOLTAGE, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1) 
@@ -353,6 +395,13 @@ class Tester:
             self.logging.warning('Return error code: ' + return_code + ' Configuring voltage: ' + self.COMMAND_VOLTAGE)
 
     def remote_alive(self, boot_timeout_sec: int):
+        """
+        Check if the remote server is alive.
+        Args:
+            boot_timeout_sec (int): The number of seconds to wait for the server to boot before giving up.
+        Returns:
+            bool: True if the server is alive, False otherwise.
+        """
         start = self.timeit.default_timer()
         self.logging.info('Checking if remote is up')
         alive = False
@@ -385,6 +434,16 @@ class Tester:
                 pass
         
     def remote_execute(self, command:str, command_timeout_sec:int, network_timout_sec: int, dmesg_index:int):
+        """
+        Execute a command on the remote server.
+        Args:
+            command (str): The command to execute.
+            command_timeout_sec (int): The number of seconds to wait for the command to complete before timing out.
+            network_timout_sec (int): The number of seconds to wait for a network response before timing out.
+            dmesg_index (int): The index of the dmesg log to return, i.e., resurns dmesg[dmesg_index: end_of(dmesg)]
+        Returns:
+            tuple: A tuple containing the health log, run command, timestamp, power, temperature, voltage, frequency, duration, standard output, standard error, return code, and dmesg diff.
+        """
         sleep_sec_excep = 0.5 
         conn_count_thresh =  int(network_timout_sec / sleep_sec_excep)
         attemp_counter = 0
@@ -424,6 +483,23 @@ class Tester:
                     conn_count_thresh =  int(network_timout_sec / sleep_sec_excep)
    
     def save_result(self, healthlog, run_counter, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff, correct):
+        """
+        Save the results of a command execution on the TARGET BOARD.
+        Args:
+            healthlog (str): The health log from the command execution.
+            run_counter (int): The number of times the command has been run.
+            run_command (str): The command that was run.
+            timestamp (str): The timestamp when the command was run.
+            power (float): The power consumption during the command execution.
+            temp (float): The temperature during the command execution.
+            voltage (float): The voltage during the command execution.
+            freq (float): The frequency during the command execution.
+            duration_ms (int): The duration of the command execution in milliseconds.
+            stdoutput (str): The standard output from the command execution.
+            stderror (str): The standard error from the command execution.
+            return_code (int): The return code from the command execution.
+            dmesg_diff (str): The difference in the dmesg logs before and after the command execution.
+        """
         now = self.datetime.now() # current date and time
         result_date = now.strftime("%m_%d_%Y__%H_%M_%S")
         result_file_name = 'results/' + self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_" + result_date + '.json'
@@ -448,6 +524,11 @@ class Tester:
             self.json.dump(result, json_file)
             
     def save_state(self):
+        """
+        This function saves the state of the experiment to a JSON file.
+        This state includes reset counter, power cycle counter, elapsed minutes, 
+        SDC (silent data corruption) counter, run counter, and total elapsed seconds.
+        """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
         state_file = "./state/" + filename
         state = {
@@ -466,6 +547,10 @@ class Tester:
             pass
 
     def restore_state(self):
+        """
+        This function restores the state of the experiment from a JSON file.
+        If the file is not found, a warning is logged.
+        """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
         state_file = "./state/" + filename
         try:
@@ -482,7 +567,9 @@ class Tester:
             pass
     
     def save_thresholds(self):
-
+        """
+        This function saves the current thresholds to a JSON file.
+        """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
         threshold_file = "./config/" + filename
 
@@ -502,6 +589,9 @@ class Tester:
             pass
     
     def restore_thresholds(self):
+        """
+        Restores the thresholds from a JSON file. If the file is not found, a warning is logged.
+        """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
         threshold_file = "./config/" + filename
         try:
@@ -525,6 +615,10 @@ class Tester:
             pass
 
     def is_result_correct(self, result):
+        """
+        Checks if the result of the benchmarking test is "SUCCESSFUL". If there is an exception 
+        during this check, it logs the error and returns False.
+        """
         try:
             verification_str = self.verification_regex.findall(result)
             answer = str(verification_str[0][1])
@@ -540,6 +634,10 @@ class Tester:
     
     
     def get_timeouts(self):
+        """
+        Calculates and logs the time taken for various tasks such as booting, voltage configuration,
+        and running benchmarks. If an exception occurs, it logs the exception.
+        """
         try:
             VID = '0403'
             PID = '6001'
@@ -613,6 +711,11 @@ class Tester:
             pass
 
     def parse_monitor_data(self,power, voltage, temp):
+        """
+        Parses the data from the monitoring tools and logs the current power, voltage, and temperature 
+        values. It also checks if any of these values exceed their respective thresholds, and logs a 
+        critical message if they do. If an exception occurs during parsing, it logs the exception.
+        """
         try:
             power_str = self.power_regex.findall(power)
             power_pmd = float(power_str[0][0])
@@ -678,6 +781,43 @@ class Tester:
             pass
     
     def experiment_start(self):
+        """
+        This method initiates an experiment run, and includes all steps required for
+        a full experiment, including initialization, running the benchmark, error 
+        checking, logging, data parsing, resetting and power cycling if necessary, 
+        and saving the state. 
+
+        It also handles exceptions and ensures continuous running of experiments 
+        until the predetermined conditions are met (e.g., a certain number of 
+        errors have occurred or a certain amount of time has elapsed).
+
+        The method uses a variety of class attributes to manage the experiment, 
+        including timers, counters, flags, thresholds, and command strings.
+
+        A rough idea of the flow is given below:
+
+        Start experiment: 
+            Initialize variables (experiment_elapsed_sec_str, error_consecutive), log the start of the experiment, and restore any saved state.
+
+        Main loop:
+
+            The experiment continuously loops until a break condition is met.
+            It checks if it's the first boot of the system. If true, it sets first_boot to false and executes the benchmark command with a cold cache timeout.
+            If it's not the first boot, it increments the dmesg_index by the length of dmesg_diff, then runs the benchmark command with a regular timeout.
+            It increments run_counter and updates the total elapsed time.
+            It checks if the result of the command is correct. If not, it logs an error, increments the consecutive error and SDC counters. If the result is correct, it resets the consecutive error counter.
+            It logs the result of the run and the current status of the experiment.
+            It updates the total elapsed time of the experiment and logs it.
+            It parses monitor data.
+            If the consecutive error count reaches a threshold, it resets the DUT (Device Under Test). If the consecutive error count exceeds the threshold, it power cycles the DUT.
+            It saves the current state of the experiment.
+            If the total effective elapsed minutes exceed a threshold or the sum of reset and power cycle counts exceeds a threshold, it breaks the loop.
+        End of experiment: 
+            Log the end of the experiment.
+
+        Exception handling: 
+            If an exception occurs during the experiment, it logs the traceback and continues.
+        """
         experiment_elapsed_sec_str = ""
         self.logging.info('Starting... Benchmark: ' + self.BENCHMARK_COMMAND)
         
@@ -755,11 +895,16 @@ class Tester:
             pass
     
 def main():
+    # Initialize Tester object
     test = Tester()
+    # Define list of voltage levels and benchmarks to test
     voltage_list = ["V930", "V940","V960","V980"]
     benchmarks_list = ["MG", "LU", "EP", "FT", "IS", "CG"]
+    # Set the thresholds for experiment termination
     finsh_after_effective_total_elapsed_minutes = 90 # minutes
     finish_after_total_errors = 100
+    # For each voltage level and benchmark combination, set the benchmark and voltage ID,
+    # set the experiment termination thresholds, and start the experiment
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
             #test.debug_reset_disable()
@@ -768,16 +913,16 @@ def main():
             test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
                 finish_after_total_errors)
             test.experiment_start()
-    #test.get_timeouts()
-    #test.power_button()
+    #test.get_timeouts() # Uncomment this line to get the current timeouts
+    #test.power_button() # Uncomment this line to press the power button
 if __name__ == '__main__':
     try:
         print("Press Ctrl-C to terminate") 
         proc = main()
     except Exception as exection:
-            print(exection)
+            print(exection)  # If there's an exception, print it and continue
             pass
-    except KeyboardInterrupt:
+    except KeyboardInterrupt: # If the user presses Ctrl-C, exit the program
         print('Exiting program')
         sys.exit
         pass
