@@ -39,25 +39,29 @@ class ExecuteService(rpyc.Service):
         return log_date
     
     def get_temp(self):
-        command = "/root/triumf/symphony/target/bash_scripts/get_temp.sh"
+        command = "sensors | grep Tctl | awk '{printf $2}'"
+        #command = "/root/triumf/symphony/target/bash_scripts/get_temp.sh"
         duration_ms, return_code, stderror, temp = self.sys_run(command)
         _ = duration_ms
         return temp
             
     def get_power(self):
-        command = "/root/triumf/symphony/target/bash_scripts/get_power.sh"
+        command = "sensors | grep SVI2_SoC | awk '{printf $2}'"
+        #command = "/root/triumf/symphony/target/bash_scripts/get_power.sh"
         duration_ms, return_code, stderror, power = self.sys_run(command)
         _ = duration_ms
         return power
     
     def get_voltage(self):
-        command = "/root/triumf/symphony/target/bash_scripts/currvolt"
+        command = "sensors | grep SVI2_Core | awk '{printf $2}'"
+        #command = "/root/triumf/symphony/target/bash_scripts/currvolt"
         duration_ms, return_code, stderror, currvolt = self.sys_run(command)
         _ = duration_ms
         return currvolt
     
     def get_freq(self):
-        command = "/root/triumf/symphony/target/bash_scripts/currfreq"
+        command = "cpupower frequency-info | grep Pstate-P0 | awk '{printf $2}'"
+        #command = "/root/triumf/symphony/target/bash_scripts/currfreq"
         duration_ms, return_code, stderror, currfreq = self.sys_run(command)
         _ = duration_ms
         if return_code != 0:
@@ -67,7 +71,7 @@ class ExecuteService(rpyc.Service):
     def exposed_alive(self):
         return True
     
-    def exposed_execute(self, run_command:str, dmesg_index:int):
+    def execute(self, run_command:str, dmesg_index:int):
         try:
             print("Executing: " + run_command)
             healthlog = "" 
@@ -82,6 +86,7 @@ class ExecuteService(rpyc.Service):
             return_code = "" 
             dmesg_diff = ""
             messages = ""
+            results = dict()
             # try:
             #     with open(self.messages_file, 'r') as f:
             #         messages = f.read()
@@ -96,15 +101,46 @@ class ExecuteService(rpyc.Service):
             voltage = self.get_voltage()
             freq = self.get_freq()
             healthlog = ""
+    
+            results = {
+                "healthlog"   : healthlog,
+                "run_command" : run_command,
+                "timestamp"   : timestamp,
+                "power"       : power,
+                "temp"        : temp,
+                "voltage"     : voltage,
+                "freq"        : freq,
+                "duration_ms" : duration_ms,
+                "stdoutput"   : stdoutput,
+                "stderror"    : stderror,
+                "return_code" : return_code,
+                "dmesg_diff"  : dmesg_diff
+            }
+
             try:
                 with open(self.healthlog_file, 'r') as f:
                     healthlog = f.read()
             except Exception:
                 pass
-            return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
+            #return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
+            return results
         except Exception as exception:
-            return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
-            
+            #return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
+            return results
+    
+    def exposed_execute_n_times(self, run_command:str, dmesg_index:int, run_times:int):
+        list_of_results = [] 
+        results = dict() # initialize an empty dictionary. 
+        # execute the command 'run_times' times.
+        for times in range(run_times):
+            try:
+                results = self.execute(run_command, dmesg_index)
+                list_of_results.append(results)
+            except:
+                pass 
+        
+        return list_of_results
+
     def sys_run(self, cmd):
         t1 = datetime.now()
         process = subprocess.run([cmd], capture_output=True, shell=True)
@@ -122,7 +158,7 @@ if __name__ == '__main__':
     try:
         print("Press Ctrl-C to terminate")
         from rpyc.utils.server import ThreadPoolServer 
-        server = ThreadPoolServer(ExecuteService, port=18861)
+        server = ThreadPoolServer(ExecuteService, port=18861, protocol_config={'allow_public_attrs': True})
         server.start()
         
         

@@ -82,68 +82,60 @@ class Tester:
         self.experiment_start_time = self.time()    
 
         self.first_boot = True
-        self.dmesg_index =0
+        self.dmesg_index = 0
         self.dmesg_diff = ""
 
         # CONSTANTS
         # check https://github.com/gtcasl/hpc-benchmarks/blob/master/NPB3.3/NPB3.3-MPI/
-        self.benchmarks_list = ["MG", "CG", "FT", "IS", "LU", "EP"]
+        # self.benchmarks_list = ["MG", "CG", "FT", "IS", "LU", "EP"]
+        self.benchmarks_list = ["MG", "CG", "IS", "LU", "EP"]
         self.benchmark_commands = {
-            "MG" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/mg.A.8',
-            "CG" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/cg.A.8',
-            "FT" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/ft.A.8', 
-            "IS" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/is.A.8',
-            "LU" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/lu.A.8',
-            "EP" : 'mpirun --allow-run-as-root --cpu-set 0-7 -np 8 --mca btl ^openib /opt/bench/NPB/NPB3.3-MPI/bin/ep.A.8'
+            "MG" : 'mpirun -np 16 /opt/bench/NPB2.4.1/NPB2.4-MPI/bin/mg.A.16',
+            "CG" : 'mpirun -np 16 /opt/bench/NPB2.4.1/NPB2.4-MPI/bin/cg.A.16',
+            "IS" : 'mpirun -np 16 /opt/bench/NPB2.4.1/NPB2.4-MPI/bin/is.A.16',
+            "LU" : 'mpirun -np 16 /opt/bench/NPB2.4.1/NPB2.4-MPI/bin/lu.A.16',
+            "EP" : 'mpirun -np 16 /opt/bench/NPB2.4.1/NPB2.4-MPI/bin/ep.A.16'
         }
 
-        # Voltage Combinations for Beaming
-        # PMD -  SOC
-        # 980 - 950
-        # 960 - 940
-        # 940 - 930
-        # 930 - 920
-
-        # Non Safe Voltage
-        # PMD -  SOC
-        # 910 - 950
-        self.voltage_list = ["V910", "V930", "V940", "V960", "V980"]
+        self.voltage_list = ["VID21", "VID38", "VID39", "VID40", "VID41"]
         self.voltage_commands = {
-            "V980" : '/root/triumf/symphony/target/bash_scripts/voltset ALL 980',
-            "V960" : '/root/triumf/symphony/target/bash_scripts/voltset ALL 960',
-            "V940" : '/root/triumf/symphony/target/bash_scripts/voltset ALL 940', 
-            "V930" : '/root/triumf/symphony/target/bash_scripts/voltset ALL 930',
-            "V910" : '/root/triumf/symphony/target/bash_scripts/voltset PMD 910'  
+            "VID41" : '/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41',
+            "VID40" : '/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 40',
+            "VID39" : '/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39', 
+            "VID38" : '/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38',
+            "VID21" : '/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21'  
         }
 
         #HDD
         self.timeouts = {
             "BOOT" : 80, 
-            "MG" : 3,
-            "CG" : 3,
-            "FT" : 50, 
-            "IS" : 2,
-            "LU" : 28,
-            "EP" : 6,
-            "V980" : 11, 
-            "V960" : 41,
-            "V940" : 81,
-            "V930" : 101,
-            "V910" : 71
+            "MG" : 1.2,
+            "CG" : 0.9,
+            #"FT" : 50, # TODO - Fix the issue with the compilation.
+            "IS" : 0.5,
+            "LU" : 7.4,
+            "EP" : 0.9,
+            # TODO - Measure the timeout to each VID
+            "VID41" : 11, 
+            "VID40" : 41,
+            "VID39" : 81,
+            "VID38" : 101,
+            "VID21" : 71
         }
-     
+ 
         self.CURRENT_BENCHMARK_ID = "MG"
-        self.CURRENT_VOLTAGE_ID = "V980"
+        self.CURRENT_VOLTAGE_ID = "VID21"
+        self.BATCH = 110 # How many times to run a benchmark.
         self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = 100
         self.FINISH_AFTER_TOTAL_ERRORS = 100 
-        self.TIMEOUT_SCALE_BENCHMARK = 2.0
+        self.TIMEOUT_SCALE_BENCHMARK = 2.0 * self.BATCH # TODO - check it again. 
         self.TIMEOUT_SCALE_BOOT = 1.1
-        self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.0
+        self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.0 
         self.TIMEOUT_SCALE_VOLTAGE = 1.2
         self.RESET_AFTER_CONCECUTIVE_ERRORS = 2
         # The DUT power cycles after (RESET_AFTER_CONCECUTIVE_ERRORS + 1)
-        
-        # Measurements with LU / V910
+       
+        # TODO - change those constants 
         self.CURRENT_PMD_THRESHOLD = 16.5 #15.28 
         self.CURRENT_SOC_THRESHOLD = 8.50 #7.97
         self.POWER_DIMM1_THRESHOLD = 9.0 #6.745
@@ -168,8 +160,8 @@ class Tester:
         self.EXECUTION_ATTEMPT = 1
         self.NETWORK_TIMEOUT_SEC = 2
 
-        
-        self.TARGET_IP = "10.30.0.100" #"localhost"
+        self.TARGET_IP = "192.168.200.109"
+        #self.TARGET_IP = "10.30.0.100" #"localhost"
         self.TARGET_PORT = 18861 
 
         #DEBUG
@@ -258,17 +250,17 @@ class Tester:
         """
         self.timeouts = {
             "BOOT" : 300, 
-            "MG" : 300,
-            "CG" : 300,
-            "FT" : 300, 
-            "IS" : 300,
-            "LU" : 300,
-            "EP" : 300,
-            "V980" : 300, 
-            "V960" : 300,
-            "V940" : 300,
-            "V930" : 300,
-            "V910" : 300
+            "MG" : 500,
+            "CG" : 500,
+            #"FT" : 300, TODO - uncomment this row, if the FT works fine. 
+            "IS" : 500,
+            "LU" : 500,
+            "EP" : 500,
+            "VID41" : 500, 
+            "VID40" : 500,
+            "VID39" : 500,
+            "VID38" : 500,
+            "VID21" : 500
         }
         self.logging.warning("debug_set_high_timeouts")
 
@@ -380,19 +372,17 @@ class Tester:
         Returns:
             str: The dmesg logs.
         """
-        run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg = \
-            self.remote_execute("date", self.DMESG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1) 
-        return dmesg
+        results = self.remote_execute("date", self.DMESG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0] 
+        return results["dmesg_diff"]
 
     def set_voltage(self):
         """
         Set the voltage of the TARGET BOARD to the value specified by COMMAND_VOLTAGE.
         """
         self.logging.info('Configuring voltage: ' + self.COMMAND_VOLTAGE)
-        healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = \
-            self.remote_execute(self.COMMAND_VOLTAGE, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1) 
-        if return_code != '0':
-            self.logging.warning('Return error code: ' + return_code + ' Configuring voltage: ' + self.COMMAND_VOLTAGE)
+        results = self.remote_execute(self.COMMAND_VOLTAGE, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
+        if results["return_code"] != '0':
+            self.logging.warning('Return error code: ' + results["return_code"] + ' Configuring voltage: ' + self.COMMAND_VOLTAGE)
 
     def remote_alive(self, boot_timeout_sec: int):
         """
@@ -433,7 +423,7 @@ class Tester:
                     conn_count_thresh =  int(boot_timeout_sec / sleep_sec_excep)
                 pass
         
-    def remote_execute(self, command:str, command_timeout_sec:int, network_timout_sec: int, dmesg_index:int):
+    def remote_execute(self, command:str, command_timeout_sec:int, network_timout_sec: int, dmesg_index:int, times:int):
         """
         Execute a command on the remote server.
         Args:
@@ -441,6 +431,7 @@ class Tester:
             command_timeout_sec (int): The number of seconds to wait for the command to complete before timing out.
             network_timout_sec (int): The number of seconds to wait for a network response before timing out.
             dmesg_index (int): The index of the dmesg log to return, i.e., resurns dmesg[dmesg_index: end_of(dmesg)]
+            times (int): How many times to execute the command.
         Returns:
             tuple: A tuple containing the health log, run command, timestamp, power, temperature, voltage, frequency, duration, standard output, standard error, return code, and dmesg diff.
         """
@@ -455,34 +446,41 @@ class Tester:
                 if not c.closed:
                     self.logging.info("Connected to server")
                     try:
-
                         start = self.timeit.default_timer()
-                        healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff = c.root.execute(command, dmesg_index)
-                        time = str(self.math.ceil(self.timeit.default_timer() - start))
-                        self.logging.info("Remote_execute(" + command + ") elapsed (seconds): " + time)
+                        results = list(c.root.execute_n_times(command, dmesg_index, times))
+                        # Fix the data accessing issue. Note: When the connection close, the data that has been transfered became unreachable.
+                        # By typecasting the data to it's original type,we overcome this issue. It seems the type 'rpyc.core.netref.type' has this issue.
+                        for fix in range(times):
+                            results[fix] = dict(results[fix])
 
-                        if return_code != '0':
-                            self.logging.error("ERROR WHEN RUNNING: " + run_command + " STDERR: " + stderror)
+                        time = str(self.math.ceil(self.timeit.default_timer() - start))
+                        self.logging.info("Remote_execute(" + results[0]["run_command"] + ") elapsed (seconds): " + time)
+                        for check in range(times):
+                            if results[check]["return_code"] != '0':
+                                self.logging.error("ERROR WHEN RUNNING: " + results[check]["run_command"] + " STDERR: " + results[check]["stderror"])
                         c.close() 
-                        return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff  
-                    except:
+                        return results
+                    except Exception as e:
+                        print(e)
                         c.close()
                         if  execution_attempt_counter > self.EXECUTION_ATTEMPT:
                             self.reset_button()
                         else:
                             self.logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                         execution_attempt_counter += 1
-                        
-            except:
+            except Exception as e:
+                print(e)
                 conn_count_thresh -= 1 
                 attemp_counter += 1
                 self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 self.sleep(sleep_sec_excep)
-                if conn_count_thresh <=0:
+                if conn_count_thresh <= 0:
                     self.reset_button()
                     conn_count_thresh =  int(network_timout_sec / sleep_sec_excep)
-   
-    def save_result(self, healthlog, run_counter, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff, correct):
+  
+    # TOOD - change it? 
+    #def save_result(self, healthlog, run_counter, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff, correct):
+    def save_result(self, results, run_counter, correct):
         """
         Save the results of a command execution on the TARGET BOARD.
         Args:
@@ -504,20 +502,20 @@ class Tester:
         result_date = now.strftime("%m_%d_%Y__%H_%M_%S")
         result_file_name = 'results/' + self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_" + result_date + '.json'
         result = {
-                    "timestamp" : timestamp,
-                    "run_command": run_command,
-                    "return_code" : return_code,
+                    "timestamp" : results["timestamp"],
+                    "run_command": results["run_command"],
+                    "return_code" : results["return_code"],
                     "run_counter" : run_counter, 
                     "correct" : correct,
-                    "duration_ms" : duration_ms,
-                    "power" : power,
-                    "temp" : temp,
-                    "voltage" : voltage,
-                    "freq" : freq,
-                    "stdoutput" : stdoutput,
-                    "stderror" : stderror,
-                    "dmesg_diff" : dmesg_diff,
-                    "healthlog" : healthlog,
+                    "duration_ms" : results["duration_ms"],
+                    "power" : results["power"],
+                    "temp" : results["temp"],
+                    "voltage" : results["voltage"],
+                    "freq" : results["freq"],
+                    "stdoutput" : results["stdoutput"],
+                    "stderror" : results["stderror"],
+                    "dmesg_diff" : results["dmesg_diff"],
+                    "healthlog" : results["healthlog"],
                     "dmesg_index" : str(self.dmesg_index)
         }
         with open(result_file_name, "w") as json_file:
@@ -555,7 +553,7 @@ class Tester:
         state_file = "./state/" + filename
         try:
             with open(state_file, 'r') as json_file:
-                state =self.json.load(json_file)
+                state = self.json.load(json_file)
                 self.reset_counter = int(state["reset_counter"])
                 self.power_cycle_counter = int(state["power_cycle_counter"])
                 self.effective_total_elapsed_minutes = float(state["effective_total_elapsed_minutes"])
@@ -596,7 +594,7 @@ class Tester:
         threshold_file = "./config/" + filename
         try:
             with open(threshold_file, 'r') as json_file:
-                threshold =self.json.load(json_file)
+                threshold = self.json.load(json_file)
                 self.CURRENT_PMD_THRESHOLD = float(threshold["current_pmd_threshold_max"]) * self.CURRENT_PMD_THRESHOLD_SCALE
                 self.CURRENT_SOC_THRESHOLD = float(threshold["current_soc_threshold_max"]) * self.CURRENT_SOC_THRESHOLD_SCALE
                 self.POWER_DIMM1_THRESHOLD = float(threshold["power_dimm1_threshold_max"]) * self.POWER_DIMM1_THRESHOLD_SCALE
@@ -710,7 +708,7 @@ class Tester:
             self.logging.warning(self.traceback.format_exc())
             pass
 
-    def parse_monitor_data(self,power, voltage, temp):
+    def parse_monitor_data(self, power, voltage, temp):
         """
         Parses the data from the monitoring tools and logs the current power, voltage, and temperature 
         values. It also checks if any of these values exceed their respective thresholds, and logs a 
@@ -821,7 +819,7 @@ class Tester:
         experiment_elapsed_sec_str = ""
         self.logging.info('Starting... Benchmark: ' + self.BENCHMARK_COMMAND)
         
-        self.power_cycle(False)
+        #self.power_cycle(False)
         
         error_consecutive = 0
 
@@ -833,35 +831,42 @@ class Tester:
                 
                 if self.first_boot == True:
                     self.first_boot = False
-                    healthlog, run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff = \
-                    self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
-                    self.dmesg_diff = dmesg_diff
+                    results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)
+                    #healthlog, run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff = \
+                    #self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
+                    self.dmesg_diff = results[0]["dmesg_diff"]
                 else:
-                    self.dmesg_index += len(self.dmesg_diff)    
-                    healthlog, run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff = \
-                        self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, self.dmesg_index)
-                    self.dmesg_diff = dmesg_diff
-                   
-                self.run_counter += 1
-                self.effective_total_elapsed_minutes += (float(effective_run_elapsed_ms)/1000)/60
+                    self.dmesg_index += len(self.dmesg_diff)
+                    results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, self.dmesg_index, self.BATCH)    
+                    #healthlog, run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff = \
+                    #    self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, self.dmesg_index)
+                    
+                    self.dmesg_diff = results[self.BATCH - 1]["dmesg_diff"]
+                
+
+                for result in results:
+                    self.run_counter += 1 
+                    self.effective_total_elapsed_minutes += (float(result["duration_ms"])/1000)/60          
+                    correct = self.is_result_correct(result["stdoutput"])
+                    self.save_result(result, str(self.run_counter), str(correct))
+
+                    if correct == False:
+                        self.logging.error("Result SDC detected")
+                        self.logging.error("Error_consecutive: " + str(error_consecutive))
+                        error_consecutive += 1
+                        self.sdc_counter += 1
+                    else:
+                        error_consecutive = 0   
+                    
+                    log_str = "Run: " + str(self.run_counter) + " | Correct: " + str(correct) + " | Effect-run-elapsed(ms): " + result["duration_ms"] + " | timestamp: " \
+                            + result["timestamp"]
+                    self.logging.info(log_str)
+
+                    #self.parse_monitor_data(result["power"], result["voltage"], result["temp"]) 
+
                 effective_elapsed_min = str("{:.2f}".format(round(self.effective_total_elapsed_minutes, 2)))
-                correct = self.is_result_correct(stdoutput)
-                self.save_result(healthlog, str(self.run_counter), run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff, str(correct))
-                if correct == False:
-                    self.logging.error("Result SDC detected")
-                    self.logging.error("Error_consecutive: " + str(error_consecutive))
-                    error_consecutive += 1
-                    self.sdc_counter += 1
 
-                else: 
-                    error_consecutive = 0
-                
-                
-                log_str = "Run: " + str(self.run_counter) + " | Correct: " + str(correct) + " | Effect-run-elapsed(ms): " + effective_run_elapsed_ms \
-                    + " | timestamp: " + timestamp            
-                self.logging.info(log_str)
-
-                
+               
                 log_str = "Resets: " + str(self.reset_counter) + " | PowerCycles: " + str(self.power_cycle_counter) \
                     + " | Effective-elapsed(min): " + str(effective_elapsed_min) +  " | SDCs: " +  str(self.sdc_counter)
                 self.logging.info(log_str)
@@ -871,7 +876,6 @@ class Tester:
                 self.logging.info("Total elapsed: "+ experiment_elapsed_sec_str + \
                     " (BENCH_ID = " + self.CURRENT_BENCHMARK_ID + " | VOLTAGE_ID = " + self.CURRENT_VOLTAGE_ID + ")")
 
-                self.parse_monitor_data(power, voltage, temp)
             
                 if error_consecutive == self.RESET_AFTER_CONCECUTIVE_ERRORS:
                     self.logging.warning("Reseting DUT. Error_consecutive: " + str(error_consecutive))
@@ -893,26 +897,72 @@ class Tester:
         except Exception:
             self.logging.warning(self.traceback.format_exc())
             pass
-    
+
+    def determine_cache_timeout(self, run_times:int):
+        results = []
+        sec_sum = 0
+        # execute one time, to put data into cache.
+        self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)
+        # run the command for 'run_times'
+        for run in range(run_times):
+            results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT * run_times, self.NETWORK_TIMEOUT_SEC, 1, 1)
+            sec_sum += float(results[0]["duration_ms"])
+
+        self.logging.info("The average execution time is: " + str(sec_sum/run_times))
+ 
+    def undervolt_characterization(self, benchmark:str, depth:int, run_times:int):
+        undervolt_cmd = "/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid {VID}"
+        results = []
+        first_exec = True
+
+        self.logging.info("Starting undervolting characterization for " + benchmark + "...")
+        for vid_offset in range(depth):
+            # Adjust the voltage.
+            results = self.remote_execute(undervolt_cmd.format(VID = str(0x21 + vid_offset)), self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
+            self.sleep(5)
+            self.logging.info("Voltage value: " + results["voltage"])
+            if first_exec==True:
+                first_exec = False
+                self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)
+            else:
+                # Run the benchmark
+                self.dmesg_index += len(self.dmesg_diff)
+                results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT * run_times, self.NETWORK_TIMEOUT_SEC, self.dmesg_index, run_times)
+                self.dmesg_diff = results[len(results) - 1]["dmesg_diff"]
+
+        # reset.
+        self.sleep(3)
+        self.remote_execute(undervolt_cmd.format(VID = str(0x21)), self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1) 
+        self.sleep(3)
+
 def main():
     # Initialize Tester object
     test = Tester()
-    # Define list of voltage levels and benchmarks to test
-    voltage_list = ["V930", "V940","V960","V980"]
-    benchmarks_list = ["MG", "LU", "EP", "FT", "IS", "CG"]
+    # Define list of voltage levels and benchmarks to testvoltage_list = ["V930", "V940","V960","V980"]
+    voltage_list = ["VID21", "VID39", "VID38", "VID40","VID41"]
+    benchmarks_list = ["MG", "LU", "EP", "IS", "CG"]
     # Set the thresholds for experiment termination
     finsh_after_effective_total_elapsed_minutes = 90 # minutes
     finish_after_total_errors = 100
     # For each voltage level and benchmark combination, set the benchmark and voltage ID,
     # set the experiment termination thresholds, and start the experiment
+    
+    
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
-            #test.debug_reset_disable()
-            #test.debug_set_high_timeouts()
+            test.debug_reset_disable()
+            test.debug_set_high_timeouts()
             test.set_benchmark_voltage_id(benchmark_id, voltage_id)
             test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
                 finish_after_total_errors)
             test.experiment_start()
+    
+    # Benchmark charactarization  
+    #for benchmark_id in benchmarks_list:
+    #    test.set_benchmark_voltage_id(benchmark_id, voltage_list[0])
+    #    test.determine_cache_timeout(100)
+    #    test.undervolt_characterization(benchmark_id, 9, 1)
+
     #test.get_timeouts() # Uncomment this line to get the current timeouts
     #test.power_button() # Uncomment this line to press the power button
 if __name__ == '__main__':
