@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys # for exit
-
+import orjson
 class Tester:
     import traceback
     import rpyc
@@ -15,6 +15,9 @@ class Tester:
     import timeit
     import math
     from datetime import timedelta
+    import os 
+        
+    os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "20.0"  # set timeout to 5 seconds
 
     class CustomFormatter(logging.Formatter):
         import logging
@@ -99,11 +102,11 @@ class Tester:
 
         self.voltage_list = ["VID21", "VID38", "VID39", "VID40", "VID41"]
         self.voltage_commands = {
-            "VID41" : '/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41',
-            "VID40" : '/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 40',
-            "VID39" : '/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39', 
-            "VID38" : '/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38',
-            "VID21" : '/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21'  
+            "VID41" : 'sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41',
+            "VID40" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 40',
+            "VID39" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39', 
+            "VID38" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38',
+            "VID21" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21'  
         }
 
         #HDD
@@ -125,7 +128,7 @@ class Tester:
  
         self.CURRENT_BENCHMARK_ID = "MG"
         self.CURRENT_VOLTAGE_ID = "VID21"
-        self.BATCH = 110 # How many times to run a benchmark.
+        self.BATCH = 100 # How many times to run a benchmark.
         self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = 100
         self.FINISH_AFTER_TOTAL_ERRORS = 100 
         self.TIMEOUT_SCALE_BENCHMARK = 2.0 * self.BATCH # TODO - check it again. 
@@ -447,11 +450,15 @@ class Tester:
                     self.logging.info("Connected to server")
                     try:
                         start = self.timeit.default_timer()
-                        results = list(c.root.execute_n_times(command, dmesg_index, times))
+                        obj = c.root.execute_n_times(command, dmesg_index, times)
+                        data = orjson.loads(obj)
+                        results_lists = list(data)
+                        results = []
                         # Fix the data accessing issue. Note: When the connection close, the data that has been transfered became unreachable.
                         # By typecasting the data to it's original type,we overcome this issue. It seems the type 'rpyc.core.netref.type' has this issue.
-                        for fix in range(times):
-                            results[fix] = dict(results[fix])
+                        for results_list in results_lists:
+                            new_dicts = dict(results_list)
+                            results.append(new_dicts)
 
                         time = str(self.math.ceil(self.timeit.default_timer() - start))
                         self.logging.info("Remote_execute(" + results[0]["run_command"] + ") elapsed (seconds): " + time)
@@ -461,7 +468,7 @@ class Tester:
                         c.close() 
                         return results
                     except Exception as e:
-                        print(e)
+                        self.logging.error(e)
                         c.close()
                         if  execution_attempt_counter > self.EXECUTION_ATTEMPT:
                             self.reset_button()
@@ -469,7 +476,7 @@ class Tester:
                             self.logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                         execution_attempt_counter += 1
             except Exception as e:
-                print(e)
+                self.logging.error(e)
                 conn_count_thresh -= 1 
                 attemp_counter += 1
                 self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
@@ -950,7 +957,7 @@ def main():
     
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
-            test.debug_reset_disable()
+            #test.debug_reset_disable()
             test.debug_set_high_timeouts()
             test.set_benchmark_voltage_id(benchmark_id, voltage_id)
             test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
