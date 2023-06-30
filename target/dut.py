@@ -6,14 +6,13 @@ import sys # for exit
 import subprocess
 from datetime import datetime, timedelta
 from dataclasses import dataclass
-
-
+import orjson
+import re
 
 class ExecuteService(rpyc.Service):
     
     def __init__(self):
         self.messages_file = '/var/log/messages'
-        self.healthlog_file = '/var/log/healthlog'
         pass
 
     def on_connect(self, conn):
@@ -38,42 +37,24 @@ class ExecuteService(rpyc.Service):
         log_date = now.strftime("%m_%d_%Y__%H_%M_%S")
         return log_date
     
-    def get_temp(self):
-        command = "sensors | grep Tctl | awk '{printf $2}'"
-        #command = "/root/triumf/symphony/target/bash_scripts/get_temp.sh"
-        duration_ms, return_code, stderror, temp = self.sys_run(command)
-        _ = duration_ms
-        return temp
-            
-    def get_power(self):
-        command = "sensors | grep SVI2_SoC | awk '{printf $2}'"
-        #command = "/root/triumf/symphony/target/bash_scripts/get_power.sh"
-        duration_ms, return_code, stderror, power = self.sys_run(command)
-        _ = duration_ms
-        return power
-    
-    def get_voltage(self):
-        command = "sensors | grep SVI2_Core | awk '{printf $2}'"
-        #command = "/root/triumf/symphony/target/bash_scripts/currvolt"
-        duration_ms, return_code, stderror, currvolt = self.sys_run(command)
-        _ = duration_ms
-        return currvolt
-    
+    def get_monitored_data(self):
+        command = "sensors"
+        duration_ms, return_code, stderror, monotired_data = self.sys_run(command)
+
+        return monotired_data
+
     def get_freq(self):
-        command = "cpupower frequency-info | grep Pstate-P0 | awk '{printf $2}'"
+        command = "cat /proc/cpuinfo | grep MHz"
         #command = "/root/triumf/symphony/target/bash_scripts/currfreq"
         duration_ms, return_code, stderror, currfreq = self.sys_run(command)
-        _ = duration_ms
-        if return_code != 0:
-            print(stderror)
-        return currfreq
+
+        return currfreq   
 
     def exposed_alive(self):
         return True
     
     def execute(self, run_command:str, dmesg_index:int):
         try:
-            print("Executing: " + run_command)
             healthlog = "" 
             timestamp = "" 
             power = "" 
@@ -96,20 +77,14 @@ class ExecuteService(rpyc.Service):
             dmesg_diff = messages[dmesg_index: len(messages)]
             duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command)
             timestamp = self.get_timestamp() # current day and time
-            power = self.get_power()
-            temp = self.get_temp()
-            voltage = self.get_voltage()
-            freq = self.get_freq()
             healthlog = ""
-    
+            healthlog += self.get_monitored_data()
+            healthlog += self.get_freq()
+
             results = {
                 "healthlog"   : healthlog,
                 "run_command" : run_command,
                 "timestamp"   : timestamp,
-                "power"       : power,
-                "temp"        : temp,
-                "voltage"     : voltage,
-                "freq"        : freq,
                 "duration_ms" : duration_ms,
                 "stdoutput"   : stdoutput,
                 "stderror"    : stderror,
@@ -117,15 +92,8 @@ class ExecuteService(rpyc.Service):
                 "dmesg_diff"  : dmesg_diff
             }
 
-            try:
-                with open(self.healthlog_file, 'r') as f:
-                    healthlog = f.read()
-            except Exception:
-                pass
-            #return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
             return results
         except Exception as exception:
-            #return healthlog, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff
             return results
     
     def exposed_execute_n_times(self, run_command:str, dmesg_index:int, run_times:int):
@@ -133,13 +101,14 @@ class ExecuteService(rpyc.Service):
         results = dict() # initialize an empty dictionary. 
         # execute the command 'run_times' times.
         for times in range(run_times):
+            print("Executing: " + run_command + ", Run: " + str(times))
             try:
                 results = self.execute(run_command, dmesg_index)
                 list_of_results.append(results)
             except:
                 pass 
-        
-        return list_of_results
+        data = orjson.dumps(list_of_results)
+        return data
 
     def sys_run(self, cmd):
         t1 = datetime.now()

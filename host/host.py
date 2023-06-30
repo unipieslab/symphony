@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import sys # for exit
 import orjson
+
 class Tester:
     import traceback
     import rpyc
@@ -66,13 +67,19 @@ class Tester:
         regex = r'Verification( +)=(. +.*)'
         self.verification_regex = self.re.compile(regex, self.re.IGNORECASE)
         
-        regex = r'.*?PMD=(.*), SoC=(.*), DIMM1=(.*), DIMM2=(.*$)'
-        self.power_regex = self.re.compile(regex, self.re.IGNORECASE)
+        regex = r'(?<=SVI2_P_Core: {2})[0-9]+.[0-9]+'
+        self.power_pmd_regex = self.re.compile(regex, self.re.IGNORECASE)
 
-        regex = r'.*?PMD:(.*)SoC:(.*$)'
-        self.voltage_regex = self.re.compile(regex, self.re.IGNORECASE)
+        regex = r'(?<=SVI2_P_SoC: {4})[0-9]+.[0-9]+'
+        self.power_soc_regex = self.re.compile(regex, self.re.IGNORECASE)
 
-        regex = r'.*?PMD=(.*),.*?=(.*),.*?=(.*)'
+        regex = r'(?<=SVI2_Core: {5})[0-9]+.[0-9]+'
+        self.voltage_pmd_regex = self.re.compile(regex, self.re.IGNORECASE)
+
+        regex = r'(?<=SVI2_SoC: {4})[0-9]{1,4}.[0=1]{2,3}'
+        self.voltage_soc_regex = self.re.compile(regex, self.re.IGNORECASE)
+
+        regex = r'(?<=Tdie: {9}.)[0-9]+.[0-9]+'
         self.temp_regex = self.re.compile(regex, self.re.IGNORECASE)
 
         self.power_cycle_counter = 0
@@ -163,8 +170,7 @@ class Tester:
         self.EXECUTION_ATTEMPT = 1
         self.NETWORK_TIMEOUT_SEC = 2
 
-        self.TARGET_IP = "192.168.200.109"
-        #self.TARGET_IP = "10.30.0.100" #"localhost"
+        self.TARGET_IP = "10.30.0.67"
         self.TARGET_PORT = 18861 
 
         #DEBUG
@@ -253,17 +259,17 @@ class Tester:
         """
         self.timeouts = {
             "BOOT" : 300, 
-            "MG" : 500,
-            "CG" : 500,
+            "MG" : 300,
+            "CG" : 300,
             #"FT" : 300, TODO - uncomment this row, if the FT works fine. 
-            "IS" : 500,
-            "LU" : 500,
-            "EP" : 500,
-            "VID41" : 500, 
-            "VID40" : 500,
-            "VID39" : 500,
-            "VID38" : 500,
-            "VID21" : 500
+            "IS" : 300,
+            "LU" : 300,
+            "EP" : 300,
+            "VID41" : 300, 
+            "VID40" : 300,
+            "VID39" : 300,
+            "VID38" : 300,
+            "VID21" : 300
         }
         self.logging.warning("debug_set_high_timeouts")
 
@@ -495,10 +501,6 @@ class Tester:
             run_counter (int): The number of times the command has been run.
             run_command (str): The command that was run.
             timestamp (str): The timestamp when the command was run.
-            power (float): The power consumption during the command execution.
-            temp (float): The temperature during the command execution.
-            voltage (float): The voltage during the command execution.
-            freq (float): The frequency during the command execution.
             duration_ms (int): The duration of the command execution in milliseconds.
             stdoutput (str): The standard output from the command execution.
             stderror (str): The standard error from the command execution.
@@ -515,10 +517,6 @@ class Tester:
                     "run_counter" : run_counter, 
                     "correct" : correct,
                     "duration_ms" : results["duration_ms"],
-                    "power" : results["power"],
-                    "temp" : results["temp"],
-                    "voltage" : results["voltage"],
-                    "freq" : results["freq"],
                     "stdoutput" : results["stdoutput"],
                     "stderror" : results["stderror"],
                     "dmesg_diff" : results["dmesg_diff"],
@@ -662,40 +660,38 @@ class Tester:
             # PMD -  SOC
             # 980 - 950
             # 960 - 940
-            # 940 - 930
-            # 930 - 920
-
+            # 940 - 930.
             # Non Safe Voltage
             # PMD -  SOC
             # 910 - 950
-            self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 980" 
+            self.COMMAND_VOLTAGE = "sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("voltage_config_time 980: " + voltage_config_time)
+            self.logging.info("voltage_config_time VID21: " + voltage_config_time)
 
-            self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 960" 
+            self.COMMAND_VOLTAGE = "sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("voltage_config_time 960: " + voltage_config_time)
+            self.logging.info("voltage_config_time VID38: " + voltage_config_time)
 
-            self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 940" 
+            self.COMMAND_VOLTAGE = "sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("voltage_config_time 940: " + voltage_config_time)
+            self.logging.info("voltage_config_time VID39: " + voltage_config_time)
 
-            self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 930" 
+            self.COMMAND_VOLTAGE = "sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 40" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("voltage_config_time 930: " + voltage_config_time)
+            self.logging.info("voltage_config_time VID40: " + voltage_config_time)
 
             start = self.timeit.default_timer()
             self.remote_execute(self.BENCHMARK_COMMAND, 100, self.NETWORK_TIMEOUT_SEC, 1)
             time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("benchmark_time 930 " + self.CURRENT_BENCHMARK_ID + ":" + time)
+            self.logging.info("benchmark_time VID40 " + self.CURRENT_BENCHMARK_ID + ":" + time)
 
             for item in self.benchmarks_list:
                 self.CURRENT_BENCHMARK_ID = item
@@ -703,62 +699,56 @@ class Tester:
                 start = self.timeit.default_timer()
                 self.remote_execute(self.BENCHMARK_COMMAND, 100, self.NETWORK_TIMEOUT_SEC, 1)
                 time = str(self.math.ceil(self.timeit.default_timer() - start))
-                self.logging.info("benchmark_time 930 " + self.CURRENT_BENCHMARK_ID + ":" + time)
+                self.logging.info("benchmark_time VID40 " + self.CURRENT_BENCHMARK_ID + ":" + time)
 
-            self.COMMAND_VOLTAGE = "/root/triumf/symphony/target/bash_scripts/voltset ALL 910" 
+            self.COMMAND_VOLTAGE = "sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("voltage_config_time 910: " + voltage_config_time)
+            self.logging.info("voltage_config_time VID41: " + voltage_config_time)
 
         except Exception:
             self.logging.warning(self.traceback.format_exc())
             pass
 
-    def parse_monitor_data(self, power, voltage, temp):
+    def parse_monitor_data(self, healthlog):
         """
         Parses the data from the monitoring tools and logs the current power, voltage, and temperature 
         values. It also checks if any of these values exceed their respective thresholds, and logs a 
         critical message if they do. If an exception occurs during parsing, it logs the exception.
         """
         try:
-            power_str = self.power_regex.findall(power)
-            power_pmd = float(power_str[0][0])
-            power_soc = float(power_str[0][1])
-            power_dimm1 = float(power_str[0][2])
-            power_dimm2 = float(power_str[0][3])
+            power_pmd_str = self.power_pmd_regex.findall(healthlog)
+            power_soc_str = self.power_soc_regex.findall(healthlog)
+            voltage_pmd_str = self.voltage_pmd_regex.findall(healthlog)
+            voltage_soc_str = self.voltage_soc_regex.findall(healthlog)
+            temp_str = self.temp_regex.findall(healthlog)
 
+            power_pmd = float(power_pmd_str[0])
+            power_soc = float(power_soc_str[0])
 
-            voltage = str(voltage).replace("\n","")
-            voltage_str = self.voltage_regex.findall(voltage)
-            voltage_pmd = round((float(voltage_str[0][0])/1000),3)
-            voltage_soc = round((float(voltage_str[0][1])/1000),3)
+            voltage_pmd = float(voltage_pmd_str[0])
+            voltage_soc = round((float(voltage_soc_str[0])/1_000),3)
+            
             current_pmd = round((power_pmd / (voltage_pmd)),2)
             current_soc = round((power_soc / (voltage_soc)),2)
 
-            temp_str = self.temp_regex.findall(temp)
-            temp_pmd = int(temp_str[0][0])
-            temp_soc = int(temp_str[0][1])
-            temp_dimm = int(temp_str[0][2])
+            temp_pmd = float(temp_str[0])
     
             power_curr_volt_temp_str = "MONITOR: PMD = "+ str(power_pmd) + "(W)/" + str(current_pmd) + "(A)/" + str(voltage_pmd) +"(V)/" \
-                + str(temp_pmd)+"(C) | SoC = "+ str(power_soc) + "(W)/" + str(current_soc) + "(A)/" + str(voltage_soc) +"(V)/" + str(temp_soc)+"(C)" \
-                    + " | DIMM1 = "+ str(power_dimm1) + "(W)/" + str(temp_dimm)+"(C)"
+                + str(temp_pmd)+"(C) | SoC = "+ str(power_soc) + "(W)/" + str(current_soc) + "(A)/" + str(voltage_soc) +"(V)/"
+
             self.logging.info(power_curr_volt_temp_str)
             
             if current_pmd > self.current_pmd_threshold_max:
                 self.current_pmd_threshold_max = current_pmd
+
             if current_soc > self.current_soc_threshold_max:
                 self.current_soc_threshold_max = current_soc
-            if power_dimm1 > self.power_dimm1_threshold_max:
-                self.power_dimm1_threshold_max = power_dimm1
+
             if temp_pmd > self.temp_pmd_threshold_max:
                 self.temp_pmd_threshold_max = temp_pmd
-            if temp_soc > self.temp_soc_threshold_max:
-                self.temp_soc_threshold_max = temp_soc
-            if temp_dimm > self.temp_dimm1_threshold_max:
-                self.temp_dimm1_threshold_max = temp_dimm
-
+            
             if self.SAVE_THRESHOLDS == True:
                 self.save_thresholds()
 
@@ -770,17 +760,13 @@ class Tester:
 
             if current_pmd > self.CURRENT_PMD_THRESHOLD:
                 self.logging.critical("PMD overcurrent: " + str(current_pmd) + "(A)")
+            
             if current_soc > self.CURRENT_SOC_THRESHOLD:
                 self.logging.critical("SOC overcurrent: " + str(current_soc) + "(A)")
-            if power_dimm1 > self.POWER_DIMM1_THRESHOLD:
-                self.logging.critical("DIMM1 overpower: " + str(power_dimm1) + "(W)")
+
             if temp_pmd > self.TEMP_PMD_THRESHOLD:
                 self.logging.critical("PMD over temperature: " + str(temp_pmd) + "(C)")
-            if temp_soc > self.TEMP_SOC_THRESHOLD:
-                self.logging.critical("SOC over temperature: " + str(temp_soc) + "(C)")
-            if temp_dimm > self.TEMP_DIMM1_THRESHOLD:
-                self.logging.critical("DIMM1 over temperature: " + str(temp_dimm) + "(C)")
-
+            
         except Exception:
             self.logging.warning(self.traceback.format_exc())
             pass
@@ -839,15 +825,10 @@ class Tester:
                 if self.first_boot == True:
                     self.first_boot = False
                     results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)
-                    #healthlog, run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff = \
-                    #self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1)
                     self.dmesg_diff = results[0]["dmesg_diff"]
                 else:
                     self.dmesg_index += len(self.dmesg_diff)
                     results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, self.dmesg_index, self.BATCH)    
-                    #healthlog, run_command, timestamp, power, temp, voltage, freq, effective_run_elapsed_ms, stdoutput, stderror, return_code, dmesg_diff = \
-                    #    self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, self.dmesg_index)
-                    
                     self.dmesg_diff = results[self.BATCH - 1]["dmesg_diff"]
                 
 
@@ -869,7 +850,7 @@ class Tester:
                             + result["timestamp"]
                     self.logging.info(log_str)
 
-                    #self.parse_monitor_data(result["power"], result["voltage"], result["temp"]) 
+                    self.parse_monitor_data(result["healthlog"]) 
 
                 effective_elapsed_min = str("{:.2f}".format(round(self.effective_total_elapsed_minutes, 2)))
 
