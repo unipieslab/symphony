@@ -109,7 +109,7 @@ class Tester:
 
         self.voltage_list = ["VID21", "VID38", "VID39", "VID40", "VID41"]
         self.voltage_commands = {
-            "VID41" : 'sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41',
+            "VID41" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41',
             "VID40" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 40',
             "VID39" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39', 
             "VID38" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38',
@@ -145,27 +145,17 @@ class Tester:
         self.RESET_AFTER_CONCECUTIVE_ERRORS = 2
         # The DUT power cycles after (RESET_AFTER_CONCECUTIVE_ERRORS + 1)
        
-        # TODO - change those constants 
-        self.CURRENT_PMD_THRESHOLD = 16.5 #15.28 
-        self.CURRENT_SOC_THRESHOLD = 8.50 #7.97
-        self.POWER_DIMM1_THRESHOLD = 9.0 #6.745
+        self.CURRENT_PMD_THRESHOLD = 100  
+        self.CURRENT_SOC_THRESHOLD = 8 
         self.TEMP_PMD_THRESHOLD = 75 #63
-        self.TEMP_SOC_THRESHOLD = 75 #60 
-        self.TEMP_DIMM1_THRESHOLD = 75 #64
 
         self.CURRENT_PMD_THRESHOLD_SCALE = 1.02
         self.CURRENT_SOC_THRESHOLD_SCALE = 1.02
-        self.POWER_DIMM1_THRESHOLD_SCALE = 1.02
         self.TEMP_PMD_THRESHOLD_SCALE = 1.1
-        self.TEMP_SOC_THRESHOLD_SCALE = 1.1
-        self.TEMP_DIMM1_THRESHOLD_SCALE = 1.1
 
         self.current_pmd_threshold_max = 0 
         self.current_soc_threshold_max = 0 
         self.temp_pmd_threshold_max = 0 
-        self.temp_soc_threshold_max = 0 
-        self.temp_dimm1_threshold_max = 0
-        self.power_dimm1_threshold_max = 0
 
         self.EXECUTION_ATTEMPT = 1
         self.NETWORK_TIMEOUT_SEC = 2
@@ -214,9 +204,6 @@ class Tester:
         self.current_pmd_threshold_max = 0 
         self.current_soc_threshold_max = 0 
         self.temp_pmd_threshold_max = 0 
-        self.temp_soc_threshold_max = 0 
-        self.temp_dimm1_threshold_max = 0
-        self.power_dimm1_threshold_max = 0
 
         self.power_cycle_counter = 0
         self.reset_counter = 0
@@ -579,10 +566,7 @@ class Tester:
         threshold = {
             "current_pmd_threshold_max": str(self.current_pmd_threshold_max),
             "current_soc_threshold_max" : str(self.current_soc_threshold_max) ,
-            "power_dimm1_threshold_max" : str(self.power_dimm1_threshold_max), 
             "temp_pmd_threshold_max" : str(self.temp_pmd_threshold_max),
-            "temp_soc_threshold_max" : str(self.temp_soc_threshold_max),
-            "temp_dimm1_threshold_max" : str(self.temp_dimm1_threshold_max)   
         }
         try:
             with open(threshold_file, "w") as json_file:
@@ -602,17 +586,11 @@ class Tester:
                 threshold = self.json.load(json_file)
                 self.CURRENT_PMD_THRESHOLD = float(threshold["current_pmd_threshold_max"]) * self.CURRENT_PMD_THRESHOLD_SCALE
                 self.CURRENT_SOC_THRESHOLD = float(threshold["current_soc_threshold_max"]) * self.CURRENT_SOC_THRESHOLD_SCALE
-                self.POWER_DIMM1_THRESHOLD = float(threshold["power_dimm1_threshold_max"]) * self.POWER_DIMM1_THRESHOLD_SCALE
                 self.TEMP_PMD_THRESHOLD = self.math.ceil(int(threshold["temp_pmd_threshold_max"]) * self.TEMP_PMD_THRESHOLD_SCALE)
-                self.TEMP_SOC_THRESHOLD = self.math.ceil(int(threshold["temp_soc_threshold_max"]) * self.TEMP_SOC_THRESHOLD_SCALE)
-                self.TEMP_DIMM1_THRESHOLD = self.math.ceil(int(threshold["temp_dimm1_threshold_max"]) * self.TEMP_DIMM1_THRESHOLD_SCALE)
                 
                 self.logging.warning("Setting CURRENT_PMD_THRESHOLD = " + str(self.CURRENT_PMD_THRESHOLD))
                 self.logging.warning("Setting CURRENT_SOC_THRESHOLD = " + str(self.CURRENT_SOC_THRESHOLD))
-                self.logging.warning("Setting POWER_DIMM1_THRESHOLD = " + str(self.POWER_DIMM1_THRESHOLD))
                 self.logging.warning("Setting TEMP_PMD_THRESHOLD = " + str(self.TEMP_PMD_THRESHOLD))
-                self.logging.warning("Setting TEMP_SOC_THRESHOLD = " + str(self.TEMP_SOC_THRESHOLD))
-                self.logging.warning("Setting TEMP_DIMM1_THRESHOLD = " + str(self.TEMP_DIMM1_THRESHOLD))
         except Exception:
             self.logging.warning(threshold_file + " file not found") 
             pass
@@ -753,8 +731,7 @@ class Tester:
                 self.save_thresholds()
 
             max_power_curr_volt_temp_str = "MONITOR(MAX): PMD = " + str(self.current_pmd_threshold_max) + "(A)/" + str(voltage_pmd) +"(V)/" \
-                + str(self.temp_pmd_threshold_max)+"(C) | SoC = " + str(self.current_soc_threshold_max) + "(A)/" + str(self.temp_soc_threshold_max)+"(C)" \
-                    + " | DIMM1 = "+ str(self.power_dimm1_threshold_max) + "(W)/" + str(self.temp_dimm1_threshold_max)+"(C)"
+                + str(self.temp_pmd_threshold_max)+"(C) | SoC = " + str(self.current_soc_threshold_max) + "(A)/"
             
             self.logging.info(max_power_curr_volt_temp_str)
 
