@@ -98,22 +98,23 @@ class Tester:
         # CONSTANTS
         # check https://github.com/gtcasl/hpc-benchmarks/blob/master/NPB3.3/NPB3.3-MPI/
         # self.benchmarks_list = ["MG", "CG", "FT", "IS", "LU", "EP"]
-        self.benchmarks_list = ["MG", "CG", "IS", "LU", "EP"]
+        self.benchmarks_list = ["FT", "MG", "CG", "IS", "LU", "EP"]
         self.benchmark_commands = {
-            "MG" : 'mpirun -np 16 /opt/bench/NPB2.4.1/NPB2.4-MPI/bin/mg.A.16',
-            "CG" : 'mpirun -np 16 /opt/bench/NPB2.4.1/NPB2.4-MPI/bin/cg.A.16',
-            "IS" : 'mpirun -np 16 /opt/bench/NPB2.4.1/NPB2.4-MPI/bin/is.A.16',
-            "LU" : 'mpirun -np 16 /opt/bench/NPB2.4.1/NPB2.4-MPI/bin/lu.A.16',
-            "EP" : 'mpirun -np 16 /opt/bench/NPB2.4.1/NPB2.4-MPI/bin/ep.A.16'
+            "FT" : '/usr/lib64/openmpi/bin/mpirun --oversubscribe -np 16 /home/eslab/bench/NPB2.4.1/NPB2.4-MPI/bin/ft.A.16',
+            "MG" : '/usr/lib64/openmpi/bin/mpirun --oversubscribe -np 16 /home/eslab/bench/NPB2.4.1/NPB2.4-MPI/bin/mg.A.16',
+            "CG" : '/usr/lib64/openmpi/bin/mpirun --oversubscribe -np 16 /home/eslab/bench/NPB2.4.1/NPB2.4-MPI/bin/cg.A.16',
+            "IS" : '/usr/lib64/openmpi/bin/mpirun --oversubscribe -np 16 /home/eslab/bench/NPB2.4.1/NPB2.4-MPI/bin/is.A.16',
+            "LU" : '/usr/lib64/openmpi/bin/mpirun --oversubscribe -np 16 /home/eslab/bench/NPB2.4.1/NPB2.4-MPI/bin/lu.A.16',
+            "EP" : '/usr/lib64/openmpi/bin/mpirun --oversubscribe -np 16 /home/eslab/bench/NPB2.4.1/NPB2.4-MPI/bin/ep.A.16'
         }
-
+        
         self.voltage_list = ["VID21", "VID38", "VID39", "VID40", "VID41"]
         self.voltage_commands = {
-            "VID41" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41',
-            "VID40" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 40',
-            "VID39" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39', 
-            "VID38" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38',
-            "VID21" : 'sudo /opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21'  
+            "VID41" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41',
+            "VID40" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 40',
+            "VID39" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39', 
+            "VID38" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38',
+            "VID21" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21'  
         }
 
         #HDD
@@ -121,7 +122,7 @@ class Tester:
             "BOOT" : 80, 
             "MG" : 1.2,
             "CG" : 0.9,
-            #"FT" : 50, # TODO - Fix the issue with the compilation.
+            "FT" : 50, # TODO - Fix the issue with the compilation.
             "IS" : 0.5,
             "LU" : 7.4,
             "EP" : 0.9,
@@ -248,7 +249,7 @@ class Tester:
             "BOOT" : 300, 
             "MG" : 300,
             "CG" : 300,
-            #"FT" : 300, TODO - uncomment this row, if the FT works fine. 
+            "FT" : 300, 
             "IS" : 300,
             "LU" : 300,
             "EP" : 300,
@@ -642,25 +643,25 @@ class Tester:
             # Non Safe Voltage
             # PMD -  SOC
             # 910 - 950
-            self.COMMAND_VOLTAGE = "sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21" 
+            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
             self.logging.info("voltage_config_time VID21: " + voltage_config_time)
 
-            self.COMMAND_VOLTAGE = "sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38" 
+            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
             self.logging.info("voltage_config_time VID38: " + voltage_config_time)
 
-            self.COMMAND_VOLTAGE = "sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39" 
+            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
             self.logging.info("voltage_config_time VID39: " + voltage_config_time)
 
-            self.COMMAND_VOLTAGE = "sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 40" 
+            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 40" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
@@ -679,7 +680,7 @@ class Tester:
                 time = str(self.math.ceil(self.timeit.default_timer() - start))
                 self.logging.info("benchmark_time VID40 " + self.CURRENT_BENCHMARK_ID + ":" + time)
 
-            self.COMMAND_VOLTAGE = "sudo opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41" 
+            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
@@ -876,7 +877,7 @@ class Tester:
         self.logging.info("The average execution time is: " + str(sec_sum/run_times))
  
     def undervolt_characterization(self, benchmark:str, depth:int, run_times:int):
-        undervolt_cmd = "/opt/undervolt/ZenStates-Linux/zenstates.py -p0 --vid {VID}"
+        undervolt_cmd = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid {VID}"
         results = []
         first_exec = True
 
@@ -885,8 +886,7 @@ class Tester:
             # Adjust the voltage.
             results = self.remote_execute(undervolt_cmd.format(VID = str(0x21 + vid_offset)), self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
             self.sleep(5)
-            self.logging.info("Voltage value: " + results["voltage"])
-            if first_exec==True:
+            if first_exec == True:
                 first_exec = False
                 self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)
             else:
@@ -905,28 +905,28 @@ def main():
     test = Tester()
     # Define list of voltage levels and benchmarks to testvoltage_list = ["V930", "V940","V960","V980"]
     voltage_list = ["VID21", "VID39", "VID38", "VID40","VID41"]
-    benchmarks_list = ["MG", "LU", "EP", "IS", "CG"]
+    #benchmarks_list = ["FT", "MG", "LU", "EP", "IS", "CG"]
+    benchmarks_list = ["FT"]
     # Set the thresholds for experiment termination
     finsh_after_effective_total_elapsed_minutes = 90 # minutes
     finish_after_total_errors = 100
     # For each voltage level and benchmark combination, set the benchmark and voltage ID,
     # set the experiment termination thresholds, and start the experiment
     
-    
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
-            #test.debug_reset_disable()
+            test.debug_reset_disable()
             test.debug_set_high_timeouts()
-            test.set_benchmark_voltage_id(benchmark_id, voltage_id)
-            test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
-                finish_after_total_errors)
-            test.experiment_start()
+            #test.set_benchmark_voltage_id(benchmark_id, voltage_id)
+            #test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
+            #    finish_after_total_errors)
+            #test.experiment_start()
     
     # Benchmark charactarization  
-    #for benchmark_id in benchmarks_list:
-    #    test.set_benchmark_voltage_id(benchmark_id, voltage_list[0])
+    for benchmark_id in benchmarks_list:
+        test.set_benchmark_voltage_id(benchmark_id, voltage_list[0])
     #    test.determine_cache_timeout(100)
-    #    test.undervolt_characterization(benchmark_id, 9, 1)
+        test.undervolt_characterization(benchmark_id, 9, 15)
 
     #test.get_timeouts() # Uncomment this line to get the current timeouts
     #test.power_button() # Uncomment this line to press the power button
