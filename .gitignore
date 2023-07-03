@@ -11,3 +11,4 @@ host/utils/logs
 host/uartLogger/venv
 host/utilis/venv
 host/utilis/logs_power_button
+host/GPIOClient.py

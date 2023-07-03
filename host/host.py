@@ -2,6 +2,8 @@
 import sys # for exit
 import orjson
 
+from GPIOClient import GPIOClient
+
 class Tester:
     import traceback
     import rpyc
@@ -17,8 +19,8 @@ class Tester:
     import math
     from datetime import timedelta
     import os 
-        
-    os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "20.0"  # set timeout to 5 seconds
+
+    os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "20.0" 
 
     class CustomFormatter(logging.Formatter):
         import logging
@@ -97,7 +99,6 @@ class Tester:
 
         # CONSTANTS
         # check https://github.com/gtcasl/hpc-benchmarks/blob/master/NPB3.3/NPB3.3-MPI/
-        # self.benchmarks_list = ["MG", "CG", "FT", "IS", "LU", "EP"]
         self.benchmarks_list = ["FT", "MG", "CG", "IS", "LU", "EP"]
         self.benchmark_commands = {
             "FT" : '/usr/lib64/openmpi/bin/mpirun --oversubscribe -np 16 /home/eslab/bench/NPB2.4.1/NPB2.4-MPI/bin/ft.A.16',
@@ -122,7 +123,7 @@ class Tester:
             "BOOT" : 80, 
             "MG" : 1.2,
             "CG" : 0.9,
-            "FT" : 50, # TODO - Fix the issue with the compilation.
+            "FT" : 50, # TODO - mesure the correct timeout
             "IS" : 0.5,
             "LU" : 7.4,
             "EP" : 0.9,
@@ -163,6 +164,12 @@ class Tester:
 
         self.TARGET_IP = "10.30.0.67"
         self.TARGET_PORT = 18861 
+
+        self.GPIO_HOST_IP = "10.30.0.63"
+        self.GPIO_HOST_PORT = 18861
+
+        self.POWER_RELAY_ID = 1
+        self.RESET_RELAY_ID = 2
 
         #DEBUG
         self.DISABLE_RESET = False
@@ -311,17 +318,17 @@ class Tester:
             count_enable (bool): Whether to increment the power cycle counter.
         """
         self.first_boot = True
-        self.dmesg_index = 1
-        ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
-        if ser != None:
-            ser.dtr = True
-            self.sleep(1)
-            ser.dtr = False
-            self.sleep(3)
-            ser.dtr = True
-            self.sleep(1)
-            ser.dtr = False
-            ser.close()
+        self.dmesg_diff = 1
+
+        client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
+        client.connect()
+
+        client.turn_on(self.RESET_RELAY_ID)
+        self.sleep(2)
+        client.turn_off(self.RESET_RELAY_ID)
+
+        client.disconnect()
+
         if count_enable == True:
             self.power_cycle_counter += 1
         self.logging.warning("Power Cycle")
@@ -335,14 +342,15 @@ class Tester:
         Simulate pressing the power button on the TARGET BOARD.
         """
         self.first_boot = True
-        self.dmesg_index = 1
-        ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
-        if ser != None:
-            ser.dtr = True
-            self.sleep(2)
-            ser.dtr = False
-            self.sleep(2)
-            ser.close()
+        self.dmesg_diff = 1
+
+        client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
+        client.connect()
+
+        client.turn_on(self.POWER_RELAY_ID)
+        self.sleep(2)
+        client.turn_off(self.POWER_RELAY_ID)
+        client.disconnect()
 
     def reset_button(self):
         """
@@ -351,14 +359,14 @@ class Tester:
         """
         self.first_boot = True
         self.dmesg_index = 1
-        ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
-        if ser != None:
-            ser.rts = True
-            self.sleep(1)
-            ser.rts = False
-            ser.close()
-        self.reset_counter +=1
-        self.logging.warning('Reset')
+
+        client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
+        client.connect()
+
+        client.turn_on(self.RESET_RELAY_ID)
+        self.sleep(2)
+        client.turn_off(self.RESET_RELAY_ID)
+
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
             self.logging.info("Booted")
             self.set_voltage()
@@ -707,7 +715,7 @@ class Tester:
             power_soc = float(power_soc_str[0])
 
             voltage_pmd = float(voltage_pmd_str[0])
-            voltage_soc = round((float(voltage_soc_str[0])/1_000),3)
+            voltage_soc = float(voltage_soc_str[0])
             
             current_pmd = round((power_pmd / (voltage_pmd)),2)
             current_soc = round((power_soc / (voltage_soc)),2)
@@ -905,8 +913,7 @@ def main():
     test = Tester()
     # Define list of voltage levels and benchmarks to testvoltage_list = ["V930", "V940","V960","V980"]
     voltage_list = ["VID21", "VID39", "VID38", "VID40","VID41"]
-    #benchmarks_list = ["FT", "MG", "LU", "EP", "IS", "CG"]
-    benchmarks_list = ["FT"]
+    benchmarks_list = ["FT", "MG", "LU", "EP", "IS", "CG"]
     # Set the thresholds for experiment termination
     finsh_after_effective_total_elapsed_minutes = 90 # minutes
     finish_after_total_errors = 100
@@ -917,16 +924,16 @@ def main():
         for benchmark_id in benchmarks_list:
             test.debug_reset_disable()
             test.debug_set_high_timeouts()
-            #test.set_benchmark_voltage_id(benchmark_id, voltage_id)
-            #test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
-            #    finish_after_total_errors)
-            #test.experiment_start()
+            test.set_benchmark_voltage_id(benchmark_id, voltage_id)
+            test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
+                finish_after_total_errors)
+            test.experiment_start()
     
     # Benchmark charactarization  
-    for benchmark_id in benchmarks_list:
-        test.set_benchmark_voltage_id(benchmark_id, voltage_list[0])
-    #    test.determine_cache_timeout(100)
-        test.undervolt_characterization(benchmark_id, 9, 15)
+    #for benchmark_id in benchmarks_list:
+        #test.set_benchmark_voltage_id(benchmark_id, voltage_list[0])
+        #test.determine_cache_timeout(100)
+        #test.undervolt_characterization(benchmark_id, 9, 15)
 
     #test.get_timeouts() # Uncomment this line to get the current timeouts
     #test.power_button() # Uncomment this line to press the power button
