@@ -72,13 +72,13 @@ class Tester:
         regex = r'(?<=SVI2_P_Core: {2})[0-9]+.[0-9]+'
         self.power_pmd_regex = self.re.compile(regex, self.re.IGNORECASE)
 
-        regex = r'(?<=SVI2_P_SoC: {4})[0-9]+.[0-9]+'
+        regex = r'(?<=SVI2_P_SoC: {3})[0-9]+.[0-9]+'
         self.power_soc_regex = self.re.compile(regex, self.re.IGNORECASE)
 
         regex = r'(?<=SVI2_Core: {5})[0-9]+.[0-9]+'
         self.voltage_pmd_regex = self.re.compile(regex, self.re.IGNORECASE)
 
-        regex = r'(?<=SVI2_SoC: {4})[0-9]{1,4}.[0=1]{2,3}'
+        regex = r'(?<=SVI2_SoC: {6})[0-9]+.[0-9]+'
         self.voltage_soc_regex = self.re.compile(regex, self.re.IGNORECASE)
 
         regex = r'(?<=Tdie: {9}.)[0-9]+.[0-9]+'
@@ -120,27 +120,26 @@ class Tester:
 
         #HDD
         self.timeouts = {
-            "BOOT" : 80, 
-            "MG" : 1.2,
-            "CG" : 0.9,
-            "FT" : 50, # TODO - mesure the correct timeout
-            "IS" : 0.5,
-            "LU" : 7.4,
-            "EP" : 0.9,
-            # TODO - Measure the timeout to each VID
-            "VID41" : 11, 
-            "VID40" : 41,
-            "VID39" : 81,
-            "VID38" : 101,
-            "VID21" : 71
+            "BOOT" : 51, 
+            "MG" : 4,
+            "CG" : 3,
+            "FT" : 4,
+            "IS" : 3,
+            "LU" : 8,
+            "EP" : 3,
+            "VID41" : 3, 
+            "VID40" : 3,
+            "VID39" : 3,
+            "VID38" : 3,
+            "VID21" : 3
         }
  
         self.CURRENT_BENCHMARK_ID = "MG"
         self.CURRENT_VOLTAGE_ID = "VID21"
-        self.BATCH = 100 # How many times to run a benchmark.
+        self.BATCH = 1 # How many times to run a benchmark.
         self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = 100
         self.FINISH_AFTER_TOTAL_ERRORS = 100 
-        self.TIMEOUT_SCALE_BENCHMARK = 2.0 * self.BATCH # TODO - check it again. 
+        self.TIMEOUT_SCALE_BENCHMARK = 2 * self.BATCH # TODO - check it again. 
         self.TIMEOUT_SCALE_BOOT = 1.1
         self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.0 
         self.TIMEOUT_SCALE_VOLTAGE = 1.2
@@ -148,8 +147,8 @@ class Tester:
         # The DUT power cycles after (RESET_AFTER_CONCECUTIVE_ERRORS + 1)
        
         self.CURRENT_PMD_THRESHOLD = 100  
-        self.CURRENT_SOC_THRESHOLD = 8 
-        self.TEMP_PMD_THRESHOLD = 75 #63
+        self.CURRENT_SOC_THRESHOLD = 100 
+        self.TEMP_PMD_THRESHOLD = 90 #63
 
         self.CURRENT_PMD_THRESHOLD_SCALE = 1.02
         self.CURRENT_SOC_THRESHOLD_SCALE = 1.02
@@ -185,11 +184,6 @@ class Tester:
         self.BENCHMARK_COLD_CACHE_TIMEOUT = round(self.timeouts[self.CURRENT_BENCHMARK_ID] \
             * self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK)
         self.DMESG_TIMEOUT = 10
-
-        # Reset UART INFO
-        self.VID = '0403'
-        self.PID = '6001'
-        self.SERIAL_NUM = 'A50285BI'
     
     def _update(self):
         """
@@ -267,49 +261,6 @@ class Tester:
             "VID21" : 300
         }
         self.logging.warning("debug_set_high_timeouts")
-
-    def find_reset_uart(self, VID:str, PID:str, SERIAL_NUM:str):
-        """
-        Find the UART port which is used for resetting and power cycling the TARGET BOARD. 
-        The UART is identified based on its vendor ID, product ID, and serial number.
-        Args:
-            VID (str): The vendor ID of the UART.
-            PID (str): The product ID of the UART.
-            SERIAL_NUM (str): The serial number of the UART.
-        Returns:
-            serial.Serial or None: The UART driver, or None if it couldn't be found or if resets are disabled.
-        """
-        port = None
-        device_list = self.list_ports.comports()
-        for device in device_list:
-            if (device.vid != None or device.pid != None or device.serial_number != None):
-                if ('{:04X}'.format(device.vid) == VID and
-                    '{:04X}'.format(device.pid) == PID and
-                    device.serial_number == SERIAL_NUM):
-                    port = device.device
-                    break        
-    
-        BAUDRATE = '19200'
-        ser = self.serial.Serial()
-        ser.baudrate = BAUDRATE
-        try:
-            ser.port = port
-            ser.dtr = False
-            ser.rts = False
-            ser.open()
-            ser.dtr = False
-            ser.rts = False
-            self.logging.info("Opening serial port:" + port + " @" + BAUDRATE)
-            if self.DISABLE_RESET == False:
-                return ser
-            else:
-                self.logging.warning("self.DISABLE_RESET = " + str(self.DISABLE_RESET))
-                return None
-        except Exception:
-            self.logging.warning(self.traceback.format_exc())
-            if port == None:
-                self.logging.warning("Cannot find reset UART")
-                pass
         
     def power_cycle(self, count_enable):
         """
@@ -366,7 +317,10 @@ class Tester:
         client.turn_on(self.RESET_RELAY_ID)
         self.sleep(2)
         client.turn_off(self.RESET_RELAY_ID)
+        client.disconnect()
 
+        self.reset_counter +=1
+        self.logging.warning('Reset')
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
             self.logging.info("Booted")
             self.set_voltage()
@@ -629,15 +583,14 @@ class Tester:
         and running benchmarks. If an exception occurs, it logs the exception.
         """
         try:
-            VID = '0403'
-            PID = '6001'
-            SERIAL_NUM = 'A50285BI'
-            ser = self.find_reset_uart(VID, PID, SERIAL_NUM)
-            if ser != None:
-                ser.rts = True
-                self.sleep(1)
-                ser.rts = False
-                ser.close()
+            client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
+            client.connect()
+
+            client.turn_on(self.RESET_RELAY_ID)
+            self.sleep(2)
+            client.turn_off(self.RESET_RELAY_ID)
+            client.disconnect()
+
             start = self.timeit.default_timer()
             self.remote_alive(self.BOOT_TIMEOUT_SEC)
             time = str(self.math.ceil(self.timeit.default_timer() - start))
@@ -676,7 +629,7 @@ class Tester:
             self.logging.info("voltage_config_time VID40: " + voltage_config_time)
 
             start = self.timeit.default_timer()
-            self.remote_execute(self.BENCHMARK_COMMAND, 100, self.NETWORK_TIMEOUT_SEC, 1)
+            self.remote_execute(self.BENCHMARK_COMMAND, 100, self.NETWORK_TIMEOUT_SEC, 1, 1)
             time = str(self.math.ceil(self.timeit.default_timer() - start))
             self.logging.info("benchmark_time VID40 " + self.CURRENT_BENCHMARK_ID + ":" + time)
 
@@ -684,7 +637,7 @@ class Tester:
                 self.CURRENT_BENCHMARK_ID = item
                 self.BENCHMARK_COMMAND = self.benchmark_commands[self.CURRENT_BENCHMARK_ID]
                 start = self.timeit.default_timer()
-                self.remote_execute(self.BENCHMARK_COMMAND, 100, self.NETWORK_TIMEOUT_SEC, 1)
+                self.remote_execute(self.BENCHMARK_COMMAND, 100, self.NETWORK_TIMEOUT_SEC, 1, 1)
                 time = str(self.math.ceil(self.timeit.default_timer() - start))
                 self.logging.info("benchmark_time VID40 " + self.CURRENT_BENCHMARK_ID + ":" + time)
 
@@ -798,7 +751,7 @@ class Tester:
         experiment_elapsed_sec_str = ""
         self.logging.info('Starting... Benchmark: ' + self.BENCHMARK_COMMAND)
         
-        #self.power_cycle(False)
+        self.power_cycle(False)
         
         error_consecutive = 0
 
@@ -871,18 +824,6 @@ class Tester:
         except Exception:
             self.logging.warning(self.traceback.format_exc())
             pass
-
-    def determine_cache_timeout(self, run_times:int):
-        results = []
-        sec_sum = 0
-        # execute one time, to put data into cache.
-        self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)
-        # run the command for 'run_times'
-        for run in range(run_times):
-            results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT * run_times, self.NETWORK_TIMEOUT_SEC, 1, 1)
-            sec_sum += float(results[0]["duration_ms"])
-
-        self.logging.info("The average execution time is: " + str(sec_sum/run_times))
  
     def undervolt_characterization(self, benchmark:str, depth:int, run_times:int):
         undervolt_cmd = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid {VID}"
@@ -922,8 +863,8 @@ def main():
     
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
-            test.debug_reset_disable()
-            test.debug_set_high_timeouts()
+            #test.debug_reset_disable()
+            #test.debug_set_high_timeouts()
             test.set_benchmark_voltage_id(benchmark_id, voltage_id)
             test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
                 finish_after_total_errors)
@@ -931,9 +872,8 @@ def main():
     
     # Benchmark charactarization  
     #for benchmark_id in benchmarks_list:
-        #test.set_benchmark_voltage_id(benchmark_id, voltage_list[0])
-        #test.determine_cache_timeout(100)
-        #test.undervolt_characterization(benchmark_id, 9, 15)
+    #    test.set_benchmark_voltage_id(benchmark_id, voltage_list[0])
+    #    test.undervolt_characterization(benchmark_id, 9, 15)
 
     #test.get_timeouts() # Uncomment this line to get the current timeouts
     #test.power_button() # Uncomment this line to press the power button

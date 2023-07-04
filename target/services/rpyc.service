@@ -1,13 +1,15 @@
 [Unit]
 Description=Target rpyc
+After=network.target
 
 [Service]
-Type=simple
+ExecStart=/home/eslab/symphony/target/run.sh
 Restart=always
-RestartSec=3
-WorkingDirectory=/root/triumf/symphony/target
-
-ExecStart=/root/triumf/symphony/target/run.sh
+User=eslab
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=rpycService
 
 [Install]
 WantedBy=multi-user.target
+

@@ -7,8 +7,11 @@ host/deactivate
 Python-3.9.1
 Python-3.9.1.tgz
 host/state
+host/config/
 host/utils/logs
 host/uartLogger/venv
 host/utilis/venv
 host/utilis/logs_power_button
 host/GPIOClient.py
+
+__pycache__
