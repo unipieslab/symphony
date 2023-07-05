@@ -69,19 +69,19 @@ class Tester:
         regex = r'Verification( +)=(. +.*)'
         self.verification_regex = self.re.compile(regex, self.re.IGNORECASE)
         
-        regex = r'(?<=SVI2_P_Core: {2})[0-9]+.[0-9]+'
+        regex = r'SVI2_P_Core:\s+(\d+\.\d+)'
         self.power_pmd_regex = self.re.compile(regex, self.re.IGNORECASE)
 
-        regex = r'(?<=SVI2_P_SoC: {3})[0-9]+.[0-9]+'
+        regex = r'SVI2_P_SoC:\s+(\d+\.\d+)'
         self.power_soc_regex = self.re.compile(regex, self.re.IGNORECASE)
 
-        regex = r'(?<=SVI2_Core: {5})[0-9]+.[0-9]+'
+        regex = r'SVI2_Core:\s+(\d+\.\d+)'
         self.voltage_pmd_regex = self.re.compile(regex, self.re.IGNORECASE)
 
-        regex = r'(?<=SVI2_SoC: {6})[0-9]+.[0-9]+'
+        regex = r'SVI2_SoC:\s+(\d+\.\d+)'
         self.voltage_soc_regex = self.re.compile(regex, self.re.IGNORECASE)
 
-        regex = r'(?<=Tdie: {9}.)[0-9]+.[0-9]+'
+        regex = r'Tdie:\s+.(\d+\.\d+)'
         self.temp_regex = self.re.compile(regex, self.re.IGNORECASE)
 
         self.power_cycle_counter = 0
@@ -111,10 +111,10 @@ class Tester:
         
         self.voltage_list = ["VID21", "VID38", "VID39", "VID40", "VID41"]
         self.voltage_commands = {
-            "VID41" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 41',
-            "VID40" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 40',
-            "VID39" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39', 
+            "VID39" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39',
             "VID38" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38',
+            "VID37" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 37', 
+            "VID36" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 36',
             "VID21" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21'  
         }
 
@@ -127,10 +127,10 @@ class Tester:
             "IS" : 3,
             "LU" : 8,
             "EP" : 3,
-            "VID41" : 3, 
-            "VID40" : 3,
-            "VID39" : 3,
+            "VID39" : 3, 
             "VID38" : 3,
+            "VID37" : 3,
+            "VID36" : 3,
             "VID21" : 3
         }
  
@@ -148,7 +148,7 @@ class Tester:
        
         self.CURRENT_PMD_THRESHOLD = 100  
         self.CURRENT_SOC_THRESHOLD = 100 
-        self.TEMP_PMD_THRESHOLD = 90 #63
+        self.TEMP_PMD_THRESHOLD = 90
 
         self.CURRENT_PMD_THRESHOLD_SCALE = 1.02
         self.CURRENT_SOC_THRESHOLD_SCALE = 1.02
@@ -170,9 +170,11 @@ class Tester:
         self.POWER_RELAY_ID = 1
         self.RESET_RELAY_ID = 2
 
+        self.SET_UP_ID = 1
+
         #DEBUG
         self.DISABLE_RESET = False
-        self.SAVE_THRESHOLDS = False
+        self.SAVE_THRESHOLDS = True
 
         #DON'T TOUCH
 
@@ -236,7 +238,6 @@ class Tester:
             self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = finish_after_effective_min
             self.FINISH_AFTER_TOTAL_ERRORS = finish_after_total_errors
             
-    
     def debug_reset_disable(self):
         """
         Disable the reset functionality for debugging purposes.
@@ -254,10 +255,10 @@ class Tester:
             "IS" : 300,
             "LU" : 300,
             "EP" : 300,
-            "VID41" : 300, 
-            "VID40" : 300,
-            "VID39" : 300,
+            "VID39" : 300, 
             "VID38" : 300,
+            "VID37" : 300,
+            "VID36" : 300,
             "VID21" : 300
         }
         self.logging.warning("debug_set_high_timeouts")
@@ -418,9 +419,9 @@ class Tester:
 
                         time = str(self.math.ceil(self.timeit.default_timer() - start))
                         self.logging.info("Remote_execute(" + results[0]["run_command"] + ") elapsed (seconds): " + time)
-                        for check in range(times):
-                            if results[check]["return_code"] != '0':
-                                self.logging.error("ERROR WHEN RUNNING: " + results[check]["run_command"] + " STDERR: " + results[check]["stderror"])
+                        for check_result in results:
+                            if check_result["return_code"] != '0':
+                                self.logging.error("ERROR WHEN RUNNING: " + check_result["run_command"] + " STDERR: " + check_result["stderror"])
                         c.close() 
                         return results
                     except Exception as e:
@@ -441,8 +442,6 @@ class Tester:
                     self.reset_button()
                     conn_count_thresh =  int(network_timout_sec / sleep_sec_excep)
   
-    # TOOD - change it? 
-    #def save_result(self, healthlog, run_counter, run_command, timestamp, power, temp, voltage, freq, duration_ms, stdoutput, stderror, return_code, dmesg_diff, correct):
     def save_result(self, results, run_counter, correct):
         """
         Save the results of a command execution on the TARGET BOARD.
@@ -524,19 +523,18 @@ class Tester:
         This function saves the current thresholds to a JSON file.
         """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
-        threshold_file = "./config/" + filename
+        threshold_file = "./config/" + str(self.SET_UP_ID) + filename
 
         threshold = {
             "current_pmd_threshold_max": str(self.current_pmd_threshold_max),
-            "current_soc_threshold_max" : str(self.current_soc_threshold_max) ,
+            "current_soc_threshold_max" : str(self.current_soc_threshold_max),
             "temp_pmd_threshold_max" : str(self.temp_pmd_threshold_max),
         }
         try:
             with open(threshold_file, "w") as json_file:
                 self.json.dump(threshold, json_file)
-        except Exception:
-            self.logging.error(self.traceback.format_exc())
-            pass
+        except Exception as e:
+            self.logging.warning(e)
     
     def restore_thresholds(self):
         """
@@ -554,9 +552,48 @@ class Tester:
                 self.logging.warning("Setting CURRENT_PMD_THRESHOLD = " + str(self.CURRENT_PMD_THRESHOLD))
                 self.logging.warning("Setting CURRENT_SOC_THRESHOLD = " + str(self.CURRENT_SOC_THRESHOLD))
                 self.logging.warning("Setting TEMP_PMD_THRESHOLD = " + str(self.TEMP_PMD_THRESHOLD))
-        except Exception:
-            self.logging.warning(threshold_file + " file not found") 
-            pass
+        except Exception as e:
+            self.logging.warning(e)
+    
+    def save_setup_informations(self):
+        filename = str(self.SET_UP_ID) + "_" + "setup.json"
+        set_up_file = "./config/" + filename
+
+        set_up_info = {
+            "voltage_list": self.voltage_list,
+            "voltage_commands": self.voltage_commands,
+            "timeouts": self.timeouts,
+            "current_pmd_threshold": self.CURRENT_PMD_THRESHOLD,
+            "current_soc_threshold": self.CURRENT_SOC_THRESHOLD,
+            "power_relay_id": self.POWER_RELAY_ID,
+            "reset_relay_id": self.RESET_RELAY_ID
+        }
+
+        try:
+            with open(set_up_file, "w") as json_file:
+                self.json.dump(set_up_info, json_file)
+        except Exception as e:
+            self.logging.warning(e)
+
+    def get_setup_informations(self):
+        filename = str(self.SET_UP_ID) + "_" + "setup.json"
+        set_up_file = "./config/" + filename
+
+        try:
+            with open(set_up_file, 'r') as json_file:
+                set_up_info = self.json.load(json_file)
+                self.voltage_list = set_up_info["voltage_list"]
+                self.voltage_commands = set_up_info["voltage_commands"]
+                self.timeouts = set_up_info["timeouts"]
+                self.CURRENT_PMD_THRESHOLD = set_up_info["current_pmd_threshold"]
+                self.CURRENT_SOC_THRESHOLD = set_up_info["current_soc_threshold"]
+                self.POWER_RELAY_ID = set_up_info["power_relay_id"]
+                self.RESET_RELAY_ID = set_up_info["reset_relay_id"]
+                
+                self.logging.warning("Setting SETUP informations")
+        except Exception as e:
+            self.logging.warning(e)
+
 
     def is_result_correct(self, result):
         """
@@ -664,16 +701,16 @@ class Tester:
             voltage_soc_str = self.voltage_soc_regex.findall(healthlog)
             temp_str = self.temp_regex.findall(healthlog)
 
-            power_pmd = float(power_pmd_str[0])
-            power_soc = float(power_soc_str[0])
+            power_pmd = float(power_pmd_str.group(1)[0])
+            power_soc = float(power_soc_str.group(1)[0])
 
-            voltage_pmd = float(voltage_pmd_str[0])
-            voltage_soc = float(voltage_soc_str[0])
+            voltage_pmd = float(voltage_pmd_str.group(1)[0])
+            voltage_soc = float(voltage_soc_str.group(1)[0])
             
             current_pmd = round((power_pmd / (voltage_pmd)),2)
             current_soc = round((power_soc / (voltage_soc)),2)
 
-            temp_pmd = float(temp_str[0])
+            temp_pmd = float(temp_str.group(1)[0])
     
             power_curr_volt_temp_str = "MONITOR: PMD = "+ str(power_pmd) + "(W)/" + str(current_pmd) + "(A)/" + str(voltage_pmd) +"(V)/" \
                 + str(temp_pmd)+"(C) | SoC = "+ str(power_soc) + "(W)/" + str(current_soc) + "(A)/" + str(voltage_soc) +"(V)/"
@@ -706,7 +743,8 @@ class Tester:
             if temp_pmd > self.TEMP_PMD_THRESHOLD:
                 self.logging.critical("PMD over temperature: " + str(temp_pmd) + "(C)")
             
-        except Exception:
+        except Exception as e:
+            self.logging.warning(e)
             self.logging.warning(self.traceback.format_exc())
             pass
     
@@ -789,7 +827,7 @@ class Tester:
                             + result["timestamp"]
                     self.logging.info(log_str)
 
-                    self.parse_monitor_data(result["healthlog"]) 
+                    self.parse_monitor_data(result["healthlog"])
 
                 effective_elapsed_min = str("{:.2f}".format(round(self.effective_total_elapsed_minutes, 2)))
 
@@ -853,14 +891,15 @@ def main():
     # Initialize Tester object
     test = Tester()
     # Define list of voltage levels and benchmarks to testvoltage_list = ["V930", "V940","V960","V980"]
-    voltage_list = ["VID21", "VID39", "VID38", "VID40","VID41"]
+    voltage_list = ["VID21", "VID38", "VID39", "VID40","VID41"]
     benchmarks_list = ["FT", "MG", "LU", "EP", "IS", "CG"]
     # Set the thresholds for experiment termination
     finsh_after_effective_total_elapsed_minutes = 90 # minutes
     finish_after_total_errors = 100
     # For each voltage level and benchmark combination, set the benchmark and voltage ID,
     # set the experiment termination thresholds, and start the experiment
-    
+    test.save_setup_informations()
+
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
             #test.debug_reset_disable()
