@@ -170,7 +170,7 @@ class Tester:
         self.POWER_RELAY_ID = 1
         self.RESET_RELAY_ID = 2
 
-        self.SET_UP_ID = 1
+        self.SET_UP_ID = 0
 
         #DEBUG
         self.DISABLE_RESET = False
@@ -237,7 +237,13 @@ class Tester:
             self.logging.warning("Setting RUNS_PER_TEST = " + str(finish_after_effective_min))
             self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = finish_after_effective_min
             self.FINISH_AFTER_TOTAL_ERRORS = finish_after_total_errors
-            
+    
+    def get_voltage_list(self):
+        return self.voltage_list
+    
+    def get_benchmarks_list(self):
+        return self.benchmarks_list
+
     def debug_reset_disable(self):
         """
         Disable the reset functionality for debugging purposes.
@@ -494,9 +500,8 @@ class Tester:
         try:
             with open(state_file, "w") as json_file:
                 self.json.dump(state, json_file)
-        except Exception:
-            self.logging.error(self.traceback.format_exc())
-            pass
+        except Exception as e:
+            self.logging.warning(e)
 
     def restore_state(self):
         """
@@ -523,7 +528,13 @@ class Tester:
         This function saves the current thresholds to a JSON file.
         """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
+        directory = "./config/" + str(self.SET_UP_ID)
         threshold_file = "./config/" + str(self.SET_UP_ID) + filename
+
+        try:
+            self.os.mkdir(directory)
+        except:
+            pass
 
         threshold = {
             "current_pmd_threshold_max": str(self.current_pmd_threshold_max),
@@ -556,7 +567,7 @@ class Tester:
             self.logging.warning(e)
     
     def save_setup_informations(self):
-        filename = str(self.SET_UP_ID) + "_" + "setup.json"
+        filename = "setup_" + str(self.SET_UP_ID) + ".json"
         set_up_file = "./config/" + filename
 
         set_up_info = {
@@ -571,12 +582,12 @@ class Tester:
 
         try:
             with open(set_up_file, "w") as json_file:
-                self.json.dump(set_up_info, json_file)
+                self.json.dump(set_up_info, json_file, indent=2)
         except Exception as e:
             self.logging.warning(e)
 
     def get_setup_informations(self):
-        filename = str(self.SET_UP_ID) + "_" + "setup.json"
+        filename = "setup_" + str(self.SET_UP_ID) + ".json"
         set_up_file = "./config/" + filename
 
         try:
@@ -589,11 +600,10 @@ class Tester:
                 self.CURRENT_SOC_THRESHOLD = set_up_info["current_soc_threshold"]
                 self.POWER_RELAY_ID = set_up_info["power_relay_id"]
                 self.RESET_RELAY_ID = set_up_info["reset_relay_id"]
-                
-                self.logging.warning("Setting SETUP informations")
+
+                self.logging.warning("Getting SETUP " + str(self.SET_UP_ID) + " informations")
         except Exception as e:
             self.logging.warning(e)
-
 
     def is_result_correct(self, result):
         """
@@ -610,10 +620,8 @@ class Tester:
                 return False
         except Exception:
             self.logging.error("Regexpr output: " + answer)
-            self.logging.error(self.traceback.format_exc())
             return False
-    
-    
+
     def get_timeouts(self):
         """
         Calculates and logs the time taken for various tasks such as booting, voltage configuration,
@@ -633,14 +641,6 @@ class Tester:
             time = str(self.math.ceil(self.timeit.default_timer() - start))
             self.logging.info("boot_time: " + time)
 
-            # Voltage Combinations for Beaming
-            # PMD -  SOC
-            # 980 - 950
-            # 960 - 940
-            # 940 - 930.
-            # Non Safe Voltage
-            # PMD -  SOC
-            # 910 - 950
             self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21" 
             start = self.timeit.default_timer()
             self.set_voltage()
@@ -686,7 +686,6 @@ class Tester:
 
         except Exception:
             self.logging.warning(self.traceback.format_exc())
-            pass
 
     def parse_monitor_data(self, healthlog):
         """
@@ -695,22 +694,22 @@ class Tester:
         critical message if they do. If an exception occurs during parsing, it logs the exception.
         """
         try:
-            power_pmd_str = self.power_pmd_regex.findall(healthlog)
-            power_soc_str = self.power_soc_regex.findall(healthlog)
-            voltage_pmd_str = self.voltage_pmd_regex.findall(healthlog)
-            voltage_soc_str = self.voltage_soc_regex.findall(healthlog)
-            temp_str = self.temp_regex.findall(healthlog)
+            power_pmd_str = self.power_pmd_regex.search(healthlog)
+            power_soc_str = self.power_soc_regex.search(healthlog)
+            voltage_pmd_str = self.voltage_pmd_regex.search(healthlog)
+            voltage_soc_str = self.voltage_soc_regex.search(healthlog)
+            temp_str = self.temp_regex.search(healthlog)
 
-            power_pmd = float(power_pmd_str.group(1)[0])
-            power_soc = float(power_soc_str.group(1)[0])
+            power_pmd = float(power_pmd_str.group(1))
+            power_soc = float(power_soc_str.group(1))
 
-            voltage_pmd = float(voltage_pmd_str.group(1)[0])
-            voltage_soc = float(voltage_soc_str.group(1)[0])
+            voltage_pmd = float(voltage_pmd_str.group(1))
+            voltage_soc = float(voltage_soc_str.group(1))
             
             current_pmd = round((power_pmd / (voltage_pmd)),2)
             current_soc = round((power_soc / (voltage_soc)),2)
 
-            temp_pmd = float(temp_str.group(1)[0])
+            temp_pmd = float(temp_str.group(1))
     
             power_curr_volt_temp_str = "MONITOR: PMD = "+ str(power_pmd) + "(W)/" + str(current_pmd) + "(A)/" + str(voltage_pmd) +"(V)/" \
                 + str(temp_pmd)+"(C) | SoC = "+ str(power_soc) + "(W)/" + str(current_soc) + "(A)/" + str(voltage_soc) +"(V)/"
@@ -745,8 +744,6 @@ class Tester:
             
         except Exception as e:
             self.logging.warning(e)
-            self.logging.warning(self.traceback.format_exc())
-            pass
     
     def experiment_start(self):
         """
@@ -890,15 +887,15 @@ class Tester:
 def main():
     # Initialize Tester object
     test = Tester()
-    # Define list of voltage levels and benchmarks to testvoltage_list = ["V930", "V940","V960","V980"]
-    voltage_list = ["VID21", "VID38", "VID39", "VID40","VID41"]
-    benchmarks_list = ["FT", "MG", "LU", "EP", "IS", "CG"]
+    test.get_setup_informations()
+    voltage_list = test.get_voltage_list()
+    benchmarks_list = test.get_benchmarks_list()
+
     # Set the thresholds for experiment termination
-    finsh_after_effective_total_elapsed_minutes = 90 # minutes
+    finsh_after_effective_total_elapsed_minutes = 15 # minutes
     finish_after_total_errors = 100
     # For each voltage level and benchmark combination, set the benchmark and voltage ID,
     # set the experiment termination thresholds, and start the experiment
-    test.save_setup_informations()
 
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
