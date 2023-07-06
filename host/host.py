@@ -242,8 +242,10 @@ class Tester:
             self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = finish_after_effective_min
             self.FINISH_AFTER_TOTAL_ERRORS = finish_after_total_errors
     
-    def set_to_lower_frequency(self):
+    def enalbe_lower_frequency(self):
         self.SET_LOWER_FREQUENCY = True
+
+    def set_to_lower_frequency(self):
         command_freq_id = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --fid {FID}"
         command_div_id = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --did {DID}"
         command_freq_id.format(FID = self.LOWER_FREQUENCY_ID)
@@ -458,6 +460,10 @@ class Tester:
                                 self.logging.error("ERROR WHEN RUNNING: " + check_result["run_command"] + " STDERR: " + check_result["stderror"])
                         c.close() 
                         return results
+                    except TimeoutError as e:
+                        self.logging.error(e)
+                        self.reset_button()
+                        c.close()
                     except Exception as e:
                         self.logging.error(e)
                         c.close()
@@ -557,7 +563,7 @@ class Tester:
         """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
         directory = "./config/" + str(self.SET_UP_ID)
-        threshold_file = "./config/" + str(self.SET_UP_ID) + filename
+        threshold_file = "./config/" + str(self.SET_UP_ID) + "/" + filename
 
         try:
             self.os.mkdir(directory)
@@ -580,7 +586,7 @@ class Tester:
         Restores the thresholds from a JSON file. If the file is not found, a warning is logged.
         """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
-        threshold_file = "./config/" + filename
+        threshold_file = "./config/" + str(self.SET_UP_ID) + "/" + filename
         try:
             with open(threshold_file, 'r') as json_file:
                 threshold = self.json.load(json_file)
@@ -836,8 +842,7 @@ class Tester:
                 if self.first_boot == True:
                     if self.SET_LOWER_FREQUENCY == True:
                         self.set_to_lower_frequency()
-                        
-                    # TODO - set the voltage?
+                        self.set_benchmark_voltage_id(self.CURRENT_BENCHMARK_ID, self.CURRENT_VOLTAGE_ID)
                     self.first_boot = False
                     results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)
                     self.dmesg_diff = results[0]["dmesg_diff"]
@@ -947,7 +952,7 @@ def main():
                 finish_after_total_errors)
             test.experiment_start()
     
-    test.set_to_lower_frequency()
+    test.enalbe_lower_frequency()
     test.get_setup_informations()
     voltage_list = test.get_voltage_list()
     benchmarks_list = test.get_benchmarks_list()
