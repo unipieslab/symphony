@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import sys # for exit
 import orjson
-
+import subprocess
 from GPIOClient import GPIOClient
 
 class Tester:
@@ -418,7 +418,15 @@ class Tester:
                     self.power_cycle(True)
                     conn_count_thresh =  int(boot_timeout_sec / sleep_sec_excep)
                 pass
-        
+    
+    def is_application_alive(self):
+        ping_response = subprocess.Popen(["/bin/ping", "-c1", "-w 1", self.TARGET_IP], stdout=subprocess.PIPE).stdout.read().decode()
+        responce_regex = r'(\d) (received)'
+        match = self.re.search(responce_regex, ping_response)
+        if (int(match.group(0)) == 0):
+            return False
+        return True
+
     def remote_execute(self, command:str, command_timeout_sec:int, network_timout_sec: int, dmesg_index:int, times:int):
         """
         Execute a command on the remote server.
@@ -461,11 +469,18 @@ class Tester:
                         c.close() 
                         return results
                     except TimeoutError as e:
-                        self.logging.error(e)
+                        if (self.is_application_alive()):
+                            self.logging.error("Application error...")
+                        else:
+                            self.logging.error("Network error...")
                         self.reset_button()
                         c.close()
                     except Exception as e:
-                        self.logging.error(e)
+                        if (self.is_application_alive()):
+                            self.logging.error("Application error...")
+                        else:
+                            self.logging.error("Network error...")
+
                         c.close()
                         if  execution_attempt_counter > self.EXECUTION_ATTEMPT:
                             self.reset_button()
@@ -473,7 +488,11 @@ class Tester:
                             self.logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                         execution_attempt_counter += 1
             except Exception as e:
-                self.logging.error(e)
+                if (self.is_application_alive()):
+                    self.logging.error("Application error...")
+                else:
+                    self.logging.error("Network error...")
+
                 conn_count_thresh -= 1 
                 attemp_counter += 1
                 self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
