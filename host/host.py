@@ -109,7 +109,7 @@ class Tester:
             "EP" : '/usr/lib64/openmpi/bin/mpirun --oversubscribe -np 16 /home/eslab/bench/NPB2.4.1/NPB2.4-MPI/bin/ep.A.16'
         }
         
-        self.voltage_list = ["VID21", "VID38", "VID39", "VID40", "VID41"]
+        self.voltage_list = ["VID21", "VID36", "VID37", "VID38", "VID39"]
         self.voltage_commands = {
             "VID39" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 39',
             "VID38" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 38',
@@ -117,6 +117,10 @@ class Tester:
             "VID36" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 36',
             "VID21" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21'  
         }
+
+        self.LOWER_FREQUENCY_ID = "84"
+        self.LOWER_FREQUENCY_DID = "C"
+        self.SET_LOWER_FREQUENCY = False
 
         #HDD
         self.timeouts = {
@@ -238,6 +242,20 @@ class Tester:
             self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = finish_after_effective_min
             self.FINISH_AFTER_TOTAL_ERRORS = finish_after_total_errors
     
+    def set_to_lower_frequency(self):
+        self.SET_LOWER_FREQUENCY = True
+        command_freq_id = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --fid {FID}"
+        command_div_id = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --did {DID}"
+        command_freq_id.format(FID = self.LOWER_FREQUENCY_ID)
+        command_div_id.format(DID = self.LOWER_FREQUENCY_DID)
+
+        self.logging.info('Configuring frequency: ' + command_freq_id)
+        results_freq_id = self.remote_execute(command_freq_id, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
+        results_div_id = self.remote_execute(command_div_id, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
+
+        if results_freq_id["return_code"] != '0' or results_div_id["return_code"] != 0:
+             self.logging.warning('Failed to configure lower frequency...')
+
     def get_voltage_list(self):
         return self.voltage_list
     
@@ -278,14 +296,17 @@ class Tester:
         self.first_boot = True
         self.dmesg_diff = 1
 
-        client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
-        client.connect()
+        try:
+            client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
+            client.connect()
 
-        client.turn_on(self.RESET_RELAY_ID)
-        self.sleep(2)
-        client.turn_off(self.RESET_RELAY_ID)
+            client.turn_on(self.RESET_RELAY_ID)
+            self.sleep(2)
+            client.turn_off(self.RESET_RELAY_ID)
 
-        client.disconnect()
+            client.disconnect()
+        except:
+            self.logging.error("Remote GPIO is down...")
 
         if count_enable == True:
             self.power_cycle_counter += 1
@@ -302,13 +323,16 @@ class Tester:
         self.first_boot = True
         self.dmesg_diff = 1
 
-        client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
-        client.connect()
+        try:
+            client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
+            client.connect()
 
-        client.turn_on(self.POWER_RELAY_ID)
-        self.sleep(2)
-        client.turn_off(self.POWER_RELAY_ID)
-        client.disconnect()
+            client.turn_on(self.POWER_RELAY_ID)
+            self.sleep(2)
+            client.turn_off(self.POWER_RELAY_ID)
+            client.disconnect()
+        except:
+            self.logging.error("Remote GPIO is down...")
 
     def reset_button(self):
         """
@@ -318,13 +342,16 @@ class Tester:
         self.first_boot = True
         self.dmesg_index = 1
 
-        client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
-        client.connect()
+        try:
+            client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
+            client.connect()
 
-        client.turn_on(self.RESET_RELAY_ID)
-        self.sleep(2)
-        client.turn_off(self.RESET_RELAY_ID)
-        client.disconnect()
+            client.turn_on(self.RESET_RELAY_ID)
+            self.sleep(2)
+            client.turn_off(self.RESET_RELAY_ID)
+            client.disconnect()
+        except:
+            self.logging.error("Remote GPIO is down...")
 
         self.reset_counter +=1
         self.logging.warning('Reset')
@@ -349,6 +376,7 @@ class Tester:
         results = self.remote_execute(self.COMMAND_VOLTAGE, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
         if results["return_code"] != '0':
             self.logging.warning('Return error code: ' + results["return_code"] + ' Configuring voltage: ' + self.COMMAND_VOLTAGE)
+
 
     def remote_alive(self, boot_timeout_sec: int):
         """
@@ -567,7 +595,10 @@ class Tester:
             self.logging.warning(e)
     
     def save_setup_informations(self):
-        filename = "setup_" + str(self.SET_UP_ID) + ".json"
+        if self.SET_LOWER_FREQUENCY == False:
+            filename = "setup_" + str(self.SET_UP_ID) + ".json"
+        else:
+            filename = "setup_" + str(self.SET_UP_ID) + "_lower_freq.json"
         set_up_file = "./config/" + filename
 
         set_up_info = {
@@ -587,7 +618,10 @@ class Tester:
             self.logging.warning(e)
 
     def get_setup_informations(self):
-        filename = "setup_" + str(self.SET_UP_ID) + ".json"
+        if self.SET_LOWER_FREQUENCY == False:
+            filename = "setup_" + str(self.SET_UP_ID) + ".json"
+        else:
+            filename = "setup_" + str(self.SET_UP_ID) + "_lower_freq.json"
         set_up_file = "./config/" + filename
 
         try:
@@ -635,7 +669,10 @@ class Tester:
             self.sleep(2)
             client.turn_off(self.RESET_RELAY_ID)
             client.disconnect()
+        except:
+            self.logging.error("Remote GPIO is down...")
 
+        try:
             start = self.timeit.default_timer()
             self.remote_alive(self.BOOT_TIMEOUT_SEC)
             time = str(self.math.ceil(self.timeit.default_timer() - start))
@@ -684,8 +721,8 @@ class Tester:
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
             self.logging.info("voltage_config_time VID41: " + voltage_config_time)
 
-        except Exception:
-            self.logging.warning(self.traceback.format_exc())
+        except Exception as e:
+            self.logging.warning(e)
 
     def parse_monitor_data(self, healthlog):
         """
@@ -797,6 +834,10 @@ class Tester:
                 #command:str, command_timeout_sec:int, network_timout_sec: int, dmesg_index:int)
                 
                 if self.first_boot == True:
+                    if self.SET_LOWER_FREQUENCY == True:
+                        self.set_to_lower_frequency()
+                        
+                    # TODO - set the voltage?
                     self.first_boot = False
                     results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)
                     self.dmesg_diff = results[0]["dmesg_diff"]
@@ -906,6 +947,19 @@ def main():
                 finish_after_total_errors)
             test.experiment_start()
     
+    test.set_to_lower_frequency()
+    test.get_setup_informations()
+    voltage_list = test.get_voltage_list()
+    benchmarks_list = test.get_benchmarks_list()
+    for voltage_id in voltage_list:
+        for benchmark_id in benchmarks_list:
+            #test.debug_reset_disable()
+            #test.debug_set_high_timeouts()
+            test.set_benchmark_voltage_id(benchmark_id, voltage_id)
+            test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
+                finish_after_total_errors)
+            test.experiment_start()
+
     # Benchmark charactarization  
     #for benchmark_id in benchmarks_list:
     #    test.set_benchmark_voltage_id(benchmark_id, voltage_list[0])
