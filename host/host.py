@@ -84,6 +84,20 @@ class Tester:
         regex = r'Tdie:\s+.(\d+\.\d+)'
         self.temp_regex = self.re.compile(regex, self.re.IGNORECASE)
 
+        regex = r'(cache level: L1)'
+        self.L1_detected_regex = self.re.compile(regex, self.re.IGNORECASE)
+        regex = r'(cache level: L2)'
+        self.L2_detected_regex = self.re.compile(regex, self.re.IGNORECASE)
+        regex = r'(cache level: L3)'
+        self.L3_detected_regex = self.re.compile(regex, self.re.IGNORECASE)
+
+        regex = r'mce: .Hardware Error.: Machine check events logged\n*.+Corrected error.+\n*.+\n*.+\n*.+\n*.+\n*.+cache level: L1'
+        self.L1_corected_regex = self.re.compile(regex, self.re.IGNORECASE)
+        regex = r'mce: .Hardware Error.: Machine check events logged\n*.+Corrected error.+\n*.+\n*.+\n*.+\n*.+\n*.+cache level: L2'
+        self.L2_corected_regex = self.re.compile(regex, self.re.IGNORECASE)
+        regex = r'mce: .Hardware Error.: Machine check events logged\n*.+Corrected error.+\n*.+\n*.+\n*.+\n*.+\n*.+cache level: L3'
+        self.L3_corected_regex = self.re.compile(regex, self.re.IGNORECASE)
+
         self.power_cycle_counter = 0
         self.reset_counter = 0
 
@@ -121,6 +135,15 @@ class Tester:
         self.LOWER_FREQUENCY_ID = "84"
         self.LOWER_FREQUENCY_DID = "C"
         self.SET_LOWER_FREQUENCY = False
+        self.EFFECTIVE_SEC_PER_BATCH = 20
+
+        self.L1_ERRORS_DETECTED = 0
+        self.L2_ERRORS_DETECTED = 0
+        self.L3_ERRORS_DETECTED = 0
+
+        self.L1_ERRORS_CORECTED = 0
+        self.L2_ERRORS_CORECTED = 0
+        self.L3_ERRORS_CORECTED = 0
 
         #HDD
         self.timeouts = {
@@ -137,13 +160,42 @@ class Tester:
             "VID36" : 3,
             "VID21" : 3
         }
+
+        self.batch_per_benchmark = {
+            "MG": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["MG"]),
+            "CG": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["CG"]),
+            "FT": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["FT"]),
+            "IS": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["IS"]),
+            "LU": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["LU"]),
+            "EP": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["EP"])
+        }
  
+        # For results
+        self.application_crash_per_benchmark = {
+            "MG": 0,
+            "CG": 0,
+            "FT": 0,
+            "IS": 0,
+            "LU": 0,
+            "EP": 0
+        }
+
+        # For resutls
+        self.network_errors_per_benchmark = {
+            "MG": 0,
+            "CG": 0,
+            "FT": 0,
+            "IS": 0,
+            "LU": 0,
+            "EP": 0           
+        }
+
         self.CURRENT_BENCHMARK_ID = "MG"
         self.CURRENT_VOLTAGE_ID = "VID21"
-        self.BATCH = 1 # How many times to run a benchmark.
         self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = 100
         self.FINISH_AFTER_TOTAL_ERRORS = 100 
-        self.TIMEOUT_SCALE_BENCHMARK = 2 * self.BATCH # TODO - check it again. 
+        self.TOTAL_ERRORS = 0
+        self.TIMEOUT_SCALE_BENCHMARK = 2 * self.batch_per_benchmark[self.CURRENT_BENCHMARK_ID] 
         self.TIMEOUT_SCALE_BOOT = 1.1
         self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.0 
         self.TIMEOUT_SCALE_VOLTAGE = 1.2
@@ -197,6 +249,8 @@ class Tester:
         based on the current benchmark ID and voltage ID. It also resets certain
         attributes that are specific to a single run of the test.
         """
+        self.TIMEOUT_SCALE_BENCHMARK = 2 * self.batch_per_benchmark[self.CURRENT_BENCHMARK_ID] 
+
         self.BENCHMARK_COMMAND = self.benchmark_commands[self.CURRENT_BENCHMARK_ID]
         self.COMMAND_VOLTAGE = self.voltage_commands[self.CURRENT_VOLTAGE_ID]
         self.BOOT_TIMEOUT_SEC = round(self.timeouts["BOOT"] * self.TIMEOUT_SCALE_BOOT)
@@ -216,6 +270,8 @@ class Tester:
         self.power_cycle_counter = 0
         self.reset_counter = 0
 
+        self.TOTAL_ERRORS = 0
+        
         self.run_counter = 0
         self.effective_total_elapsed_minutes = 0
         self.sdc_counter = 0 
@@ -238,24 +294,36 @@ class Tester:
         self._update()
 
     def set_finish_after_effective_minutes_or_total_errors(self, finish_after_effective_min, finish_after_total_errors):
-            self.logging.warning("Setting RUNS_PER_TEST = " + str(finish_after_effective_min))
-            self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = finish_after_effective_min
-            self.FINISH_AFTER_TOTAL_ERRORS = finish_after_total_errors
+        self.logging.warning("Setting RUNS_PER_TEST = " + str(finish_after_effective_min))
+        self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = finish_after_effective_min
+        self.FINISH_AFTER_TOTAL_ERRORS = finish_after_total_errors
     
-    def enalbe_lower_frequency(self):
+    def enable_lower_frequency(self):
         self.SET_LOWER_FREQUENCY = True
+        self.logging.warning("Enable lower frequency")
+
+    def calculate_batch_per_benchmark(self):
+        self.batch_per_benchmark = {
+            "MG": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["MG"]),
+            "CG": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["CG"]),
+            "FT": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["FT"]),
+            "IS": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["IS"]),
+            "LU": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["LU"]),
+            "EP": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["EP"])
+        }
 
     def set_to_lower_frequency(self):
         command_freq_id = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --fid {FID}"
         command_div_id = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --did {DID}"
-        command_freq_id.format(FID = self.LOWER_FREQUENCY_ID)
-        command_div_id.format(DID = self.LOWER_FREQUENCY_DID)
+        command_freq_id = command_freq_id.format(FID = self.LOWER_FREQUENCY_ID)
+        command_div_id = command_div_id.format(DID = self.LOWER_FREQUENCY_DID)
 
         self.logging.info('Configuring frequency: ' + command_freq_id)
         results_freq_id = self.remote_execute(command_freq_id, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
         results_div_id = self.remote_execute(command_div_id, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
 
-        if results_freq_id["return_code"] != '0' or results_div_id["return_code"] != 0:
+        self.logging.warning("setting to lower frequency...")
+        if results_freq_id["return_code"] != '0' or results_div_id["return_code"] != "0":
              self.logging.warning('Failed to configure lower frequency...')
 
     def get_voltage_list(self):
@@ -269,6 +337,7 @@ class Tester:
         Disable the reset functionality for debugging purposes.
         """
         self.DISABLE_RESET = True
+
     def debug_set_high_timeouts(self):
         """
         Set high timeouts for debugging purposes.
@@ -315,8 +384,9 @@ class Tester:
         self.logging.warning("Power Cycle")
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
             self.logging.info("Booted")
+            if self.SET_LOWER_FREQUENCY == True:
+                self.set_to_lower_frequency()
             self.set_voltage()
-            
 
     def power_button(self):
         """
@@ -423,9 +493,20 @@ class Tester:
         ping_response = subprocess.Popen(["/bin/ping", "-c1", "-w 1", self.TARGET_IP], stdout=subprocess.PIPE).stdout.read().decode()
         responce_regex = r'(\d) (received)'
         match = self.re.search(responce_regex, ping_response)
-        if (int(match.group(0)) == 0):
+        if (int(match.group(1)) == 0):
             return False
         return True
+    
+    def clasify_exec_error(self):
+        try:
+            if (self.is_application_alive()):
+                self.logging.error("Application crash...")
+                self.application_crash_per_benchmark[self.CURRENT_BENCHMARK_ID] += 1
+            else:
+                self.logging.error("Network error...")
+                self.network_errors_per_benchmark[self.CURRENT_BENCHMARK_ID] += 1
+        except Exception as e:
+            self.logging.warning(e)
 
     def remote_execute(self, command:str, command_timeout_sec:int, network_timout_sec: int, dmesg_index:int, times:int):
         """
@@ -443,6 +524,7 @@ class Tester:
         conn_count_thresh =  int(network_timout_sec / sleep_sec_excep)
         attemp_counter = 0
         execution_attempt_counter = 1
+        was_first_error = True
         while True:
             try:
                 c = self.rpyc.connect(self.TARGET_IP, self.TARGET_PORT)
@@ -466,39 +548,33 @@ class Tester:
                         for check_result in results:
                             if check_result["return_code"] != '0':
                                 self.logging.error("ERROR WHEN RUNNING: " + check_result["run_command"] + " STDERR: " + check_result["stderror"])
-                        c.close() 
-                        return results
-                    except TimeoutError as e:
-                        if (self.is_application_alive()):
-                            self.logging.error("Application error...")
-                        else:
-                            self.logging.error("Network error...")
-                        self.reset_button()
                         c.close()
+                        was_first_error = True
+                        return results
+                    
                     except Exception as e:
-                        if (self.is_application_alive()):
-                            self.logging.error("Application error...")
-                        else:
-                            self.logging.error("Network error...")
-
+                        if was_first_error == True:
+                            self.clacify_exec_error()
+                        was_first_error = False
                         c.close()
                         if  execution_attempt_counter > self.EXECUTION_ATTEMPT:
                             self.reset_button()
+                            was_first_error = True
                         else:
                             self.logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                         execution_attempt_counter += 1
-            except Exception as e:
-                if (self.is_application_alive()):
-                    self.logging.error("Application error...")
-                else:
-                    self.logging.error("Network error...")
 
+            except Exception as e:
+                if was_first_error == True:
+                    self.clasify_exec_error()
+                was_first_error = False
                 conn_count_thresh -= 1 
                 attemp_counter += 1
                 self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 self.sleep(sleep_sec_excep)
                 if conn_count_thresh <= 0:
                     self.reset_button()
+                    was_first_error = True
                     conn_count_thresh =  int(network_timout_sec / sleep_sec_excep)
   
     def save_result(self, results, run_counter, correct):
@@ -548,7 +624,9 @@ class Tester:
                     "effective_total_elapsed_minutes" : str(self.effective_total_elapsed_minutes), 
                     "sdc_counter" : str(self.sdc_counter),
                     "run_counter" : str(self.run_counter),
-                    "experiment_total_elapsed_sec" : str(self.experiment_total_elapsed_sec)
+                    "experiment_total_elapsed_sec" : str(self.experiment_total_elapsed_sec),
+                    "application_crash_per_benchmark": self.application_crash_per_benchmark,
+                    "network_errors_per_benchmark": self.network_errors_per_benchmark
         }
         try:
             with open(state_file, "w") as json_file:
@@ -572,9 +650,10 @@ class Tester:
                 self.sdc_counter = int(state["sdc_counter"])
                 self.run_counter = int(state["run_counter"])
                 self.experiment_total_elapsed_sec = float(state["experiment_total_elapsed_sec"])
+                self.application_crash_per_benchmark = state["application_crash_per_benchmark"]
+                self.network_errors_per_benchmark = state["network_errors_per_benchmark"]
         except Exception:
             self.logging.warning(state_file + " file not found") 
-            pass
     
     def save_thresholds(self):
         """
@@ -599,7 +678,7 @@ class Tester:
                 self.json.dump(threshold, json_file)
         except Exception as e:
             self.logging.warning(e)
-    
+
     def restore_thresholds(self):
         """
         Restores the thresholds from a JSON file. If the file is not found, a warning is logged.
@@ -611,7 +690,7 @@ class Tester:
                 threshold = self.json.load(json_file)
                 self.CURRENT_PMD_THRESHOLD = float(threshold["current_pmd_threshold_max"]) * self.CURRENT_PMD_THRESHOLD_SCALE
                 self.CURRENT_SOC_THRESHOLD = float(threshold["current_soc_threshold_max"]) * self.CURRENT_SOC_THRESHOLD_SCALE
-                self.TEMP_PMD_THRESHOLD = self.math.ceil(int(threshold["temp_pmd_threshold_max"]) * self.TEMP_PMD_THRESHOLD_SCALE)
+                self.TEMP_PMD_THRESHOLD = self.math.ceil(float(threshold["temp_pmd_threshold_max"]) * self.TEMP_PMD_THRESHOLD_SCALE)
                 
                 self.logging.warning("Setting CURRENT_PMD_THRESHOLD = " + str(self.CURRENT_PMD_THRESHOLD))
                 self.logging.warning("Setting CURRENT_SOC_THRESHOLD = " + str(self.CURRENT_SOC_THRESHOLD))
@@ -633,7 +712,7 @@ class Tester:
             "current_pmd_threshold": self.CURRENT_PMD_THRESHOLD,
             "current_soc_threshold": self.CURRENT_SOC_THRESHOLD,
             "power_relay_id": self.POWER_RELAY_ID,
-            "reset_relay_id": self.RESET_RELAY_ID
+            "reset_relay_id": self.RESET_RELAY_ID,
         }
 
         try:
@@ -807,6 +886,28 @@ class Tester:
         except Exception as e:
             self.logging.warning(e)
     
+    def detect_cache_errors(self, dmesg):
+        check_L1 = self.L1_detected_regex.search(dmesg)
+        if check_L1:
+            self.L1_ERRORS_CORECTED += 1
+            check_if_corected = self.L1_corected_regex.search(dmesg)
+            if check_if_corected:
+                self.L1_ERRORS_CORECTED += 1
+        
+        check_L2 = self.L2_detected_regex.search(dmesg)
+        if check_L2:
+            self.L2_ERRORS_CORECTED += 1
+            check_if_corected = self.L2_corected_regex.search(dmesg)
+            if check_if_corected:
+                self.L2_ERRORS_CORECTED += 1
+        
+        check_L3 = self.L3_detected_regex.search(dmesg)
+        if check_L3:
+            self.L3_ERRORS_CORECTED += 1
+            check_if_corected = self.L3_corected_regex.search(dmesg)
+            if check_if_corected:
+                self.L3_ERRORS_CORECTED += 1
+
     def experiment_start(self):
         """
         This method initiates an experiment run, and includes all steps required for
@@ -859,29 +960,28 @@ class Tester:
                 #command:str, command_timeout_sec:int, network_timout_sec: int, dmesg_index:int)
                 
                 if self.first_boot == True:
-                    if self.SET_LOWER_FREQUENCY == True:
-                        self.set_to_lower_frequency()
-                        self.set_benchmark_voltage_id(self.CURRENT_BENCHMARK_ID, self.CURRENT_VOLTAGE_ID)
                     self.first_boot = False
                     results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_COLD_CACHE_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)
                     self.dmesg_diff = results[0]["dmesg_diff"]
                 else:
                     self.dmesg_index += len(self.dmesg_diff)
-                    results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, self.dmesg_index, self.BATCH)    
-                    self.dmesg_diff = results[self.BATCH - 1]["dmesg_diff"]
+                    results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, self.dmesg_index, self.batch_per_benchmark[self.CURRENT_BENCHMARK_ID])
+                    last_execution = self.batch_per_benchmark[self.CURRENT_BENCHMARK_ID] - 1
+                    self.dmesg_diff = results[last_execution]["dmesg_diff"]
                 
-
                 for result in results:
                     self.run_counter += 1 
                     self.effective_total_elapsed_minutes += (float(result["duration_ms"])/1000)/60          
                     correct = self.is_result_correct(result["stdoutput"])
                     self.save_result(result, str(self.run_counter), str(correct))
+                    self.detect_cache_errors(result["dmesg_diff"])
 
                     if correct == False:
                         self.logging.error("Result SDC detected")
                         self.logging.error("Error_consecutive: " + str(error_consecutive))
                         error_consecutive += 1
                         self.sdc_counter += 1
+                        self.TOTAL_ERRORS += 1
                     else:
                         error_consecutive = 0   
                     
@@ -895,8 +995,30 @@ class Tester:
 
                
                 log_str = "Resets: " + str(self.reset_counter) + " | PowerCycles: " + str(self.power_cycle_counter) \
-                    + " | Effective-elapsed(min): " + str(effective_elapsed_min) +  " | SDCs: " +  str(self.sdc_counter)
+                    + " | Effective-elapsed(min): " + str(effective_elapsed_min)
                 self.logging.info(log_str)
+
+                log_errors_str = "Total Errors | Network: "+ str(self.network_errors_per_benchmark[self.CURRENT_BENCHMARK_ID]) + \
+                                " | App crash: "+ str(self.application_crash_per_benchmark[self.CURRENT_BENCHMARK_ID]) + \
+                                " | SDCs: "+ str(self.sdc_counter)
+                self.logging.info(log_errors_str)
+
+                log_errors_str = "Total Cache Errors | L1: "+ str(self.L1_ERRORS_DETECTED) + \
+                                " | L2: "+ str(self.L2_ERRORS_DETECTED) + \
+                                " | L3: "+ str(self.L3_ERRORS_DETECTED)
+                self.logging.info(log_errors_str)
+
+                log_errors_str = "Total Cache Errors Corrected | L1: "+ str(self.L1_ERRORS_CORECTED) + \
+                                " | L2: "+ str(self.L2_ERRORS_CORECTED) + \
+                                " | L3: "+ str(self.L3_ERRORS_CORECTED)
+                self.logging.info(log_errors_str)
+
+                network_errors_per_min = self.network_errors_per_benchmark[self.CURRENT_BENCHMARK_ID] / self.effective_total_elapsed_minutes
+                application_crash_per_min = self.application_crash_per_benchmark[self.CURRENT_BENCHMARK_ID] / self.effective_total_elapsed_minutes 
+                total_errors_per_min = self.TOTAL_ERRORS / self.effective_total_elapsed_minutes
+                self.logging.info("Network errors/Min: "+ str(network_errors_per_min)  + \
+                                  " | App crash/Min: "+ str(application_crash_per_min) + \
+                                  " | Total errors/Min: "+ str(total_errors_per_min) + "")
 
                 self.experiment_total_elapsed_sec = (self.time() - self.experiment_start_time)
                 experiment_elapsed_sec_str = str(self.timedelta(seconds=self.experiment_total_elapsed_sec))
@@ -906,20 +1028,23 @@ class Tester:
             
                 if error_consecutive == self.RESET_AFTER_CONCECUTIVE_ERRORS:
                     self.logging.warning("Reseting DUT. Error_consecutive: " + str(error_consecutive))
+                    self.TOTAL_ERRORS += 1
                     self.reset_button()
 
                 if error_consecutive >= (self.RESET_AFTER_CONCECUTIVE_ERRORS + 1):
                     self.logging.warning("Power Cycling DUT. Error_consecutive: " + str(error_consecutive))
+                    self.TOTAL_ERRORS += 1
                     self.power_cycle(True)
 
                 self.save_state()
 
                 if ((self.effective_total_elapsed_minutes > self.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES) \
-                    or ((self.reset_counter + self.power_cycle_counter) > self.FINISH_AFTER_TOTAL_ERRORS)):
+                    or (self.TOTAL_ERRORS > self.FINISH_AFTER_TOTAL_ERRORS)):
                     break
                 
             self.logging.info("Finished. Total elapsed: "+ experiment_elapsed_sec_str + \
                     " (BENCH_ID = " + self.CURRENT_BENCHMARK_ID + " | VOLTAGE_ID = " + self.CURRENT_VOLTAGE_ID + ")")
+
             
         except Exception:
             self.logging.warning(self.traceback.format_exc())
@@ -953,6 +1078,7 @@ def main():
     # Initialize Tester object
     test = Tester()
     test.get_setup_informations()
+    test.calculate_batch_per_benchmark()
     voltage_list = test.get_voltage_list()
     benchmarks_list = test.get_benchmarks_list()
 
@@ -971,8 +1097,9 @@ def main():
                 finish_after_total_errors)
             test.experiment_start()
     
-    test.enalbe_lower_frequency()
+    test.enable_lower_frequency()
     test.get_setup_informations()
+    test.calculate_batch_per_benchmark()
     voltage_list = test.get_voltage_list()
     benchmarks_list = test.get_benchmarks_list()
     for voltage_id in voltage_list:
