@@ -45,7 +45,6 @@ class ExecuteService(rpyc.Service):
 
     def get_freq(self):
         command = "cat /proc/cpuinfo | grep MHz"
-        #command = "/root/triumf/symphony/target/bash_scripts/currfreq"
         duration_ms, return_code, stderror, currfreq = self.sys_run(command)
 
         return currfreq   
@@ -73,7 +72,7 @@ class ExecuteService(rpyc.Service):
             #         messages = f.read()
             # except Exception:
             #     pass
-            _, _, _, messages = self.sys_run("dmesg")
+            _, _, _, messages = self.sys_run("dmesg --ctime")
             dmesg_diff = messages[dmesg_index: len(messages)]
             duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command)
             timestamp = self.get_timestamp() # current day and time

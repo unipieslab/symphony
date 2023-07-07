@@ -8,8 +8,6 @@ class Tester:
     import traceback
     import rpyc
     from time import sleep
-    import serial
-    from serial.tools import list_ports #pyserial, esptool
     import json
     import re
     from datetime import datetime
@@ -147,7 +145,7 @@ class Tester:
 
         #HDD
         self.timeouts = {
-            "BOOT" : 51, 
+            "BOOT" : 65, 
             "MG" : 4,
             "CG" : 3,
             "FT" : 4,
@@ -430,15 +428,6 @@ class Tester:
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
             self.logging.info("Booted")
             self.set_voltage()
-            
-    def get_dmesg(self):
-        """
-        Get the dmesg logs from the TARGET BOARD.
-        Returns:
-            str: The dmesg logs.
-        """
-        results = self.remote_execute("date", self.DMESG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0] 
-        return results["dmesg_diff"]
 
     def set_voltage(self):
         """
@@ -448,7 +437,6 @@ class Tester:
         results = self.remote_execute(self.COMMAND_VOLTAGE, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
         if results["return_code"] != '0':
             self.logging.warning('Return error code: ' + results["return_code"] + ' Configuring voltage: ' + self.COMMAND_VOLTAGE)
-
 
     def remote_alive(self, boot_timeout_sec: int):
         """
@@ -484,7 +472,7 @@ class Tester:
                 attemp_counter += 1
                 self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 self.sleep(sleep_sec_excep)
-                if conn_count_thresh <=0:
+                if conn_count_thresh <= 0:
                     self.power_cycle(True)
                     conn_count_thresh =  int(boot_timeout_sec / sleep_sec_excep)
                 pass
@@ -616,7 +604,10 @@ class Tester:
         This state includes reset counter, power cycle counter, elapsed minutes, 
         SDC (silent data corruption) counter, run counter, and total elapsed seconds.
         """
-        filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
+        if self.SET_LOWER_FREQUENCY == False:
+            filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
+        else:
+            filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state_lower_freq.json"
         state_file = "./state/" + filename
         state = {
                     "reset_counter": str(self.reset_counter),
@@ -639,7 +630,11 @@ class Tester:
         This function restores the state of the experiment from a JSON file.
         If the file is not found, a warning is logged.
         """
-        filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
+        if self.SET_LOWER_FREQUENCY == False:
+            filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
+        else:
+            filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state_lower_freq.json"
+
         state_file = "./state/" + filename
         try:
             with open(state_file, 'r') as json_file:
@@ -706,6 +701,8 @@ class Tester:
         set_up_file = "./config/" + filename
 
         set_up_info = {
+            "target_ip": self.TARGET_IP,
+            "target_port": self.TARGET_PORT,
             "voltage_list": self.voltage_list,
             "voltage_commands": self.voltage_commands,
             "timeouts": self.timeouts,
@@ -730,14 +727,16 @@ class Tester:
 
         try:
             with open(set_up_file, 'r') as json_file:
-                set_up_info = self.json.load(json_file)
-                self.voltage_list = set_up_info["voltage_list"]
-                self.voltage_commands = set_up_info["voltage_commands"]
-                self.timeouts = set_up_info["timeouts"]
+                set_up_info                = self.json.load(json_file)
+                self.TARGET_IP             = set_up_info["target_ip"]
+                self.TARGET_PORT           = set_up_info["target_port"]
+                self.voltage_list          = set_up_info["voltage_list"]
+                self.voltage_commands      = set_up_info["voltage_commands"]
+                self.timeouts              = set_up_info["timeouts"]
                 self.CURRENT_PMD_THRESHOLD = set_up_info["current_pmd_threshold"]
                 self.CURRENT_SOC_THRESHOLD = set_up_info["current_soc_threshold"]
-                self.POWER_RELAY_ID = set_up_info["power_relay_id"]
-                self.RESET_RELAY_ID = set_up_info["reset_relay_id"]
+                self.POWER_RELAY_ID        = set_up_info["power_relay_id"]
+                self.RESET_RELAY_ID        = set_up_info["reset_relay_id"]
 
                 self.logging.warning("Getting SETUP " + str(self.SET_UP_ID) + " informations")
         except Exception as e:
