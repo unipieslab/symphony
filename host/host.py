@@ -133,7 +133,10 @@ class Tester:
         self.LOWER_FREQUENCY_ID = "84"
         self.LOWER_FREQUENCY_DID = "C"
         self.SET_LOWER_FREQUENCY = False
-        self.EFFECTIVE_SEC_PER_BATCH = 20
+
+        self.MID_FREQUENCY_ID = "8A"
+        self.MID_FREQUENCY_DID = "C"
+        self.SET_MID_FREQUENCY = False
 
         self.L1_ERRORS_DETECTED = 0
         self.L2_ERRORS_DETECTED = 0
@@ -158,6 +161,8 @@ class Tester:
             "VID36" : 3,
             "VID21" : 3
         }
+
+        self.EFFECTIVE_SEC_PER_BATCH = 20
 
         self.batch_per_benchmark = {
             "MG": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["MG"]),
@@ -200,8 +205,8 @@ class Tester:
         self.RESET_AFTER_CONCECUTIVE_ERRORS = 2
         # The DUT power cycles after (RESET_AFTER_CONCECUTIVE_ERRORS + 1)
        
-        self.CURRENT_PMD_THRESHOLD = 100  
-        self.CURRENT_SOC_THRESHOLD = 100 
+        self.CURRENT_PMD_THRESHOLD = 95
+        self.CURRENT_SOC_THRESHOLD = 95 
         self.TEMP_PMD_THRESHOLD = 90
 
         self.CURRENT_PMD_THRESHOLD_SCALE = 1.02
@@ -223,8 +228,6 @@ class Tester:
 
         self.POWER_RELAY_ID = 1
         self.RESET_RELAY_ID = 2
-
-        self.SET_UP_ID = 0
 
         #DEBUG
         self.DISABLE_RESET = False
@@ -298,7 +301,13 @@ class Tester:
     
     def enable_lower_frequency(self):
         self.SET_LOWER_FREQUENCY = True
+        self.SET_MID_FREQUENCY = False
         self.logging.warning("Enable lower frequency")
+
+    def enable_mid_frequency(self):
+        self.SET_MID_FREQUENCY = True
+        self.SET_LOWER_FREQUENCY = False
+        self.logging.warning("Enable mid frequency")
 
     def calculate_batch_per_benchmark(self):
         self.batch_per_benchmark = {
@@ -310,17 +319,20 @@ class Tester:
             "EP": self.math.ceil(self.EFFECTIVE_SEC_PER_BATCH / self.timeouts["EP"])
         }
 
-    def set_to_lower_frequency(self):
+    def set_frequency(self, freq_id, div_id):
         command_freq_id = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --fid {FID}"
         command_div_id = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --did {DID}"
-        command_freq_id = command_freq_id.format(FID = self.LOWER_FREQUENCY_ID)
-        command_div_id = command_div_id.format(DID = self.LOWER_FREQUENCY_DID)
+        command_freq_id = command_freq_id.format(FID = freq_id)
+        command_div_id = command_div_id.format(DID = div_id)
 
         self.logging.info('Configuring frequency: ' + command_freq_id)
         results_freq_id = self.remote_execute(command_freq_id, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
         results_div_id = self.remote_execute(command_div_id, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
 
-        self.logging.warning("setting to lower frequency...")
+        if self.SET_LOWER_FREQUENCY == True:
+            self.logging.warning("setting to lower frequency...")
+        else:
+            self.logging.warning("setting to mid frequency...")
         if results_freq_id["return_code"] != '0' or results_div_id["return_code"] != "0":
              self.logging.warning('Failed to configure lower frequency...')
 
@@ -356,6 +368,17 @@ class Tester:
         }
         self.logging.warning("debug_set_high_timeouts")
         
+    def press_button(self, relay, hold_time):
+        try:
+            client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
+            client.connect()
+            client.turn_on(relay)
+            self.sleep(hold_time)
+            client.turn_off(relay)
+            client.disconnect()
+        except Exception as e:
+            self.logging.warning(e)
+
     def power_cycle(self, count_enable):
         """
         Power cycle the TARGET BOARD, and optionally increment the power cycle counter.
@@ -365,17 +388,8 @@ class Tester:
         self.first_boot = True
         self.dmesg_diff = 1
 
-        try:
-            client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
-            client.connect()
-
-            client.turn_on(self.RESET_RELAY_ID)
-            self.sleep(2)
-            client.turn_off(self.RESET_RELAY_ID)
-
-            client.disconnect()
-        except:
-            self.logging.error("Remote GPIO is down...")
+        self.press_button(self.POWER_RELAY_ID, 4)
+        self.press_button(self.POWER_RELAY_ID, 1)
 
         if count_enable == True:
             self.power_cycle_counter += 1
@@ -383,7 +397,9 @@ class Tester:
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
             self.logging.info("Booted")
             if self.SET_LOWER_FREQUENCY == True:
-                self.set_to_lower_frequency()
+                self.set_frequency(self.LOWER_FREQUENCY_ID, self.LOWER_FREQUENCY_DID)
+            if self.SET_MID_FREQUENCY == True:
+                self.set_frequency(self.MID_FREQUENCY_ID, self.MID_FREQUENCY_DID)
             self.set_voltage()
 
     def power_button(self):
@@ -393,16 +409,7 @@ class Tester:
         self.first_boot = True
         self.dmesg_diff = 1
 
-        try:
-            client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
-            client.connect()
-
-            client.turn_on(self.POWER_RELAY_ID)
-            self.sleep(2)
-            client.turn_off(self.POWER_RELAY_ID)
-            client.disconnect()
-        except:
-            self.logging.error("Remote GPIO is down...")
+        self.press_button(self.POWER_RELAY_ID, 1)
 
     def reset_button(self):
         """
@@ -412,16 +419,7 @@ class Tester:
         self.first_boot = True
         self.dmesg_index = 1
 
-        try:
-            client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
-            client.connect()
-
-            client.turn_on(self.RESET_RELAY_ID)
-            self.sleep(2)
-            client.turn_off(self.RESET_RELAY_ID)
-            client.disconnect()
-        except:
-            self.logging.error("Remote GPIO is down...")
+        self.press_button(self.RESET_RELAY_ID, 1)
 
         self.reset_counter +=1
         self.logging.warning('Reset')
@@ -472,10 +470,11 @@ class Tester:
                 attemp_counter += 1
                 self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 self.sleep(sleep_sec_excep)
+                if self.is_application_alive():
+                    self.start_service()
                 if conn_count_thresh <= 0:
                     self.power_cycle(True)
                     conn_count_thresh =  int(boot_timeout_sec / sleep_sec_excep)
-                pass
     
     def is_application_alive(self):
         ping_response = subprocess.Popen(["/bin/ping", "-c1", "-w 1", self.TARGET_IP], stdout=subprocess.PIPE).stdout.read().decode()
@@ -485,6 +484,12 @@ class Tester:
             return False
         return True
     
+    def start_service(self):
+        try:
+            command_run = self.os.system("ssh eslab@" + self.TARGET_IP + " 'sudo /usr/bin/systemctl start rpyc'")
+        except Exception as e:
+            self.logging.warning(e)
+
     def clasify_exec_error(self):
         try:
             if (self.is_application_alive()):
@@ -606,8 +611,11 @@ class Tester:
         """
         if self.SET_LOWER_FREQUENCY == False:
             filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
+        elif self.SET_MID_FREQUENCY == True:
+            filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state_mid_freq.json"
         else:
             filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state_lower_freq.json"
+
         state_file = "./state/" + filename
         state = {
                     "reset_counter": str(self.reset_counter),
@@ -632,6 +640,8 @@ class Tester:
         """
         if self.SET_LOWER_FREQUENCY == False:
             filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
+        elif self.SET_MID_FREQUENCY == True:
+            filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state_mid_freq.json"
         else:
             filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state_lower_freq.json"
 
@@ -656,7 +666,7 @@ class Tester:
         """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
         directory = "./config/" + str(self.SET_UP_ID)
-        threshold_file = "./config/" + str(self.SET_UP_ID) + "/" + filename
+        threshold_file = "./config/" + filename
 
         try:
             self.os.mkdir(directory)
@@ -679,13 +689,13 @@ class Tester:
         Restores the thresholds from a JSON file. If the file is not found, a warning is logged.
         """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
-        threshold_file = "./config/" + str(self.SET_UP_ID) + "/" + filename
+        threshold_file = "./config/" + filename
         try:
             with open(threshold_file, 'r') as json_file:
                 threshold = self.json.load(json_file)
-                self.CURRENT_PMD_THRESHOLD = float(threshold["current_pmd_threshold_max"]) * self.CURRENT_PMD_THRESHOLD_SCALE
-                self.CURRENT_SOC_THRESHOLD = float(threshold["current_soc_threshold_max"]) * self.CURRENT_SOC_THRESHOLD_SCALE
-                self.TEMP_PMD_THRESHOLD = self.math.ceil(float(threshold["temp_pmd_threshold_max"]) * self.TEMP_PMD_THRESHOLD_SCALE)
+                self.current_pmd_threshold_max = float(threshold["current_pmd_threshold_max"])
+                self.current_soc_threshold_max = float(threshold["current_soc_threshold_max"])
+                self.temp_pmd_threshold_max = self.math.ceil(float(threshold["temp_pmd_threshold_max"]))
                 
                 self.logging.warning("Setting CURRENT_PMD_THRESHOLD = " + str(self.CURRENT_PMD_THRESHOLD))
                 self.logging.warning("Setting CURRENT_SOC_THRESHOLD = " + str(self.CURRENT_SOC_THRESHOLD))
@@ -693,54 +703,6 @@ class Tester:
         except Exception as e:
             self.logging.warning(e)
     
-    def save_setup_informations(self):
-        if self.SET_LOWER_FREQUENCY == False:
-            filename = "setup_" + str(self.SET_UP_ID) + ".json"
-        else:
-            filename = "setup_" + str(self.SET_UP_ID) + "_lower_freq.json"
-        set_up_file = "./config/" + filename
-
-        set_up_info = {
-            "target_ip": self.TARGET_IP,
-            "target_port": self.TARGET_PORT,
-            "voltage_list": self.voltage_list,
-            "voltage_commands": self.voltage_commands,
-            "timeouts": self.timeouts,
-            "current_pmd_threshold": self.CURRENT_PMD_THRESHOLD,
-            "current_soc_threshold": self.CURRENT_SOC_THRESHOLD,
-            "power_relay_id": self.POWER_RELAY_ID,
-            "reset_relay_id": self.RESET_RELAY_ID,
-        }
-
-        try:
-            with open(set_up_file, "w") as json_file:
-                self.json.dump(set_up_info, json_file, indent=2)
-        except Exception as e:
-            self.logging.warning(e)
-
-    def get_setup_informations(self):
-        if self.SET_LOWER_FREQUENCY == False:
-            filename = "setup_" + str(self.SET_UP_ID) + ".json"
-        else:
-            filename = "setup_" + str(self.SET_UP_ID) + "_lower_freq.json"
-        set_up_file = "./config/" + filename
-
-        try:
-            with open(set_up_file, 'r') as json_file:
-                set_up_info                = self.json.load(json_file)
-                self.TARGET_IP             = set_up_info["target_ip"]
-                self.TARGET_PORT           = set_up_info["target_port"]
-                self.voltage_list          = set_up_info["voltage_list"]
-                self.voltage_commands      = set_up_info["voltage_commands"]
-                self.timeouts              = set_up_info["timeouts"]
-                self.CURRENT_PMD_THRESHOLD = set_up_info["current_pmd_threshold"]
-                self.CURRENT_SOC_THRESHOLD = set_up_info["current_soc_threshold"]
-                self.POWER_RELAY_ID        = set_up_info["power_relay_id"]
-                self.RESET_RELAY_ID        = set_up_info["reset_relay_id"]
-
-                self.logging.warning("Getting SETUP " + str(self.SET_UP_ID) + " informations")
-        except Exception as e:
-            self.logging.warning(e)
 
     def is_result_correct(self, result):
         """
@@ -1073,19 +1035,78 @@ class Tester:
         self.remote_execute(undervolt_cmd.format(VID = str(0x21)), self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1) 
         self.sleep(3)
 
-def main():
-    # Initialize Tester object
-    test = Tester()
-    test.get_setup_informations()
-    test.calculate_batch_per_benchmark()
+    def switch_to_mid_frequency(self):
+        # Change the timeouts and the voltage commands
+        self.voltage_list = ["VID21", "VID78", "VID79", "VID80", "VID81"]
+
+        self.voltage_commands = {
+            "VID81" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 81',
+            "VID80" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 80',
+            "VID79" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 79', 
+            "VID78" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 78',
+            "VID21" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21'  
+        }
+        
+        self.timeouts = {
+            "BOOT": 70,
+            "MG": 5,
+            "CG": 5,
+            "FT": 6,
+            "IS": 5,
+            "LU": 13,
+            "EP": 5,
+            "VID78": 3,
+            "VID79": 3,
+            "VID80": 3,
+            "VID81": 3,
+            "VID21": 3
+        }
+
+    def switch_to_lower_frequency(self):
+        # Change the timeouts and the voltage commands
+        self.voltage_list = ["VID21", "VID78", "VID79", "VID80", "VID81"]
+
+        self.voltage_commands = {
+            "VID81" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 81',
+            "VID80" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 80',
+            "VID79" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 79', 
+            "VID78" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 78',
+            "VID21" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 21'  
+        }
+
+        self.timeouts = {
+            "BOOT": 70,
+            "MG": 5,
+            "CG": 5,
+            "FT": 6,
+            "IS": 5,
+            "LU": 13,
+            "EP": 5,
+            "VID78": 3,
+            "VID79": 3,
+            "VID80": 3,
+            "VID81": 3,
+            "VID21": 3
+        }
+
+    def switch_frequency(self, is_lower_freq):
+        if is_lower_freq == True:
+            self.enable_lower_frequency()
+            self.switch_to_lower_frequency()
+        else:
+            self.enable_mid_frequency()
+            self.switch_to_mid_frequency()
+
+
+def execute_benchmarks_per_voltage(test: Tester):
+
     voltage_list = test.get_voltage_list()
     benchmarks_list = test.get_benchmarks_list()
+    test.calculate_batch_per_benchmark()
 
     # Set the thresholds for experiment termination
     finsh_after_effective_total_elapsed_minutes = 15 # minutes
     finish_after_total_errors = 100
-    # For each voltage level and benchmark combination, set the benchmark and voltage ID,
-    # set the experiment termination thresholds, and start the experiment
 
     for voltage_id in voltage_list:
         for benchmark_id in benchmarks_list:
@@ -1095,20 +1116,14 @@ def main():
             test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
                 finish_after_total_errors)
             test.experiment_start()
-    
-    test.enable_lower_frequency()
-    test.get_setup_informations()
-    test.calculate_batch_per_benchmark()
-    voltage_list = test.get_voltage_list()
-    benchmarks_list = test.get_benchmarks_list()
-    for voltage_id in voltage_list:
-        for benchmark_id in benchmarks_list:
-            #test.debug_reset_disable()
-            #test.debug_set_high_timeouts()
-            test.set_benchmark_voltage_id(benchmark_id, voltage_id)
-            test.set_finish_after_effective_minutes_or_total_errors(finsh_after_effective_total_elapsed_minutes, \
-                finish_after_total_errors)
-            test.experiment_start()
+
+def main():
+    # Initialize Tester object
+    test = Tester()
+    execute_benchmarks_per_voltage(test)
+
+    test.switch_frequency(True)
+    execute_benchmarks_per_voltage(test);
 
     # Benchmark charactarization  
     #for benchmark_id in benchmarks_list:
