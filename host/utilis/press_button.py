@@ -1,82 +1,65 @@
+from GPIOClient import GPIOClient
+import time
+import sys
 
-import traceback
+POWER_BUTTONS = {
+    "0": 1, # Power button for setup 0
+    "1": 3, # Power button for setup 1
+    "2": 4, # Power button for setup 2
+    "3": 5  # Power button for setup 3
+}
 
-from time import sleep
-import serial
-from serial.tools import list_ports #pyserial, esptool
-from datetime import datetime
-import logging
-from time import time
-from datetime import timedelta
+RESET_BUTTONS = {
+    "0": 2,  # Reset button for setup 0
+    "1": 3,  # Reset button for setup 1
+    "2": 4,  # Reset button for setup 2
+    "3": 6   # Reset button for setup 3
+}
 
-#Global variables
-now = datetime.now() # current date and time
-log_date = now.strftime("%m_%d_%Y__%H_%M_%S")
-log_file_name = '/home/eslab/wsp/unipi/triumf/symphony/host/utilis/logs_power_button/log_' + log_date + '.log'
-# logging.INFO
-logging.basicConfig(filename=log_file_name, format='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s' \
-    ,level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
-formatter = logging.Formatter(fmt='%(asctime)s.%(msecs)03d %(levelname)-8s %(message)s',
-                      datefmt='%Y-%m-%d,%H:%M:%S')
+REMOTE_GPIO_IP = "10.30.0.63"
+REMOTE_GPIO_PORT = 18861
 
-screen_handler = logging.StreamHandler()
-logging.getLogger().addHandler(screen_handler)
+HELP_MSG = "Usage: button_simulator [OPTION]... [SETUP_ID]\n" + \
+           " --reset-button [SETUP_ID]  Reset the setup specified in [SETUP_ID].\n" + \
+           " --power-button [SETUP_ID]  Power up/down the setup specified in [SETUP_ID].\n" + \
+           "Available setups: 0, 1, 2, 3" 
 
+COMMANDS = ["--reset-button", "--power-button"]
+SETUPS = ["0", "1", "2", "3"]
 
-def power_button():
-    # Reset UART INFO
-    VID = '0403'
-    PID = '6001'
-    SERIAL_NUM = 'A50285BI'
-    ser = find_reset_uart(VID, PID, SERIAL_NUM)
-    if ser != None:
-        ser.dtr = True
-        logging.warning("power_button pressed")
-        sleep(1)
-        ser.dtr = False
-        logging.warning("power_button reseased")
-        ser.close()
+def push_button(relay_id: int, hold_time):
+    try:
+        client = GPIOClient(REMOTE_GPIO_IP, REMOTE_GPIO_PORT)
+        client.connect()
+        client.turn_on(relay_id)
+        time.sleep(hold_time)
+        client.turn_off(relay_id)
+        client.disconnect()
+
+    except Exception as e:
+        print("Remote GPIO is down...")
+
+def power_button(self, relay_id):
+    push_button(relay_id, 4)
+
+def reset_button(self, relay_id):
+    push_button(relay_id, 2)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print(HELP_MSG)
+        exit(0)
     
-
-def find_reset_uart(VID:str, PID:str, SERIAL_NUM:str):
-        """This function finds the specific UART that is used for resetting and power cycling the XGENE-2
-
-        Args:
-            VID (str): USB2UART Vendor ID
-            PID (str): USB2UART Product ID
-            SERIAL_NUM (str): Self explained
-
-        Returns:
-            serial.Serial(): Returns the uart driver
-        """    
-        port = None
-        device_list = list_ports.comports()
-        for device in device_list:
-            if (device.vid != None or device.pid != None or device.serial_number != None):
-                if ('{:04X}'.format(device.vid) == VID and
-                    '{:04X}'.format(device.pid) == PID and
-                    device.serial_number == SERIAL_NUM):
-                    port = device.device
-                    break        
-    
-        BAUDRATE = '19200'
-        ser = serial.Serial()
-        ser.baudrate = BAUDRATE
-        try:
-            ser.port = port
-            ser.dtr = False
-            ser.rts = False
-            ser.open()
-            ser.dtr = False
-            ser.rts = False
-            logging.info("Opening serial port:" + port + " @" + BAUDRATE)
-            
-            return ser
-           
-        except Exception:
-            logging.warning(traceback.format_exc())
-            if port == None:
-                logging.warning("Cannot find reset UART")
-                pass
-            
-power_button()
+    if sys.argv[1] in COMMANDS:
+        if sys.argv[1] == COMMANDS[0]:
+            if sys.argv[2] in SETUPS:
+                reset_button(RESET_BUTTONS[sys.argv[2]])
+            else:
+                print(HELP_MSG)
+        else:
+            if sys.argv[2] in SETUPS:
+                power_button(POWER_BUTTONS[sys.argv[2]])
+            else:
+                print(HELP_MSG)
+    else:
+        print(HELP_MSG)

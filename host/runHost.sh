@@ -1,4 +1,4 @@
 #! /bin/bash
 source venv/bin/activate
-python host.py
+python3.9 host.py
 deactivate
