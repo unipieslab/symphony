@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import sys # for exit
+from GPIOClient import GPIOClient
+
 
 class Tester:
     import traceback
@@ -167,6 +169,9 @@ class Tester:
         self.TARGET_IP = "10.30.0.100" #"localhost"
         self.TARGET_PORT = 18861 
 
+        self.GPIO_HOST_IP = "10.30.0.63"
+        self.GPIO_HOST_PORT = 18861
+        
         #DEBUG
         self.DISABLE_RESET = False
         self.SAVE_THRESHOLDS = False
@@ -182,10 +187,6 @@ class Tester:
             * self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK)
         self.DMESG_TIMEOUT = 10
 
-        # Reset UART INFO
-        self.VID = '0403'
-        self.PID = '6001'
-        self.SERIAL_NUM = 'A50285BI'
     
     def _update(self):
         self.BENCHMARK_COMMAND = self.benchmark_commands[self.CURRENT_BENCHMARK_ID]
@@ -234,48 +235,7 @@ class Tester:
     def debug_reset_disable(self):
         self.DISABLE_RESET = True
 
-    def find_reset_uart(self, VID:str, PID:str, SERIAL_NUM:str):
-        """This function finds the specific UART that is used for resetting and power cycling the XGENE-2
 
-        Args:
-            VID (str): USB2UART Vendor ID
-            PID (str): USB2UART Product ID
-            SERIAL_NUM (str): Self explained
-
-        Returns:
-            serial.Serial(): Returns the uart driver
-        """    
-        port = None
-        device_list = self.list_ports.comports()
-        for device in device_list:
-            if (device.vid != None or device.pid != None or device.serial_number != None):
-                if ('{:04X}'.format(device.vid) == VID and
-                    '{:04X}'.format(device.pid) == PID and
-                    device.serial_number == SERIAL_NUM):
-                    port = device.device
-                    break        
-    
-        BAUDRATE = '19200'
-        ser = self.serial.Serial()
-        ser.baudrate = BAUDRATE
-        try:
-            ser.port = port
-            ser.dtr = False
-            ser.rts = False
-            ser.open()
-            ser.dtr = False
-            ser.rts = False
-            self.logging.info("Opening serial port:" + port + " @" + BAUDRATE)
-            if self.DISABLE_RESET == False:
-                return ser
-            else:
-                self.logging.warning("self.DISABLE_RESET = " + str(self.DISABLE_RESET))
-                return None
-        except Exception:
-            self.logging.warning(self.traceback.format_exc())
-            if port == None:
-                self.logging.warning("Cannot find reset UART")
-                pass
     def debug_set_high_timeouts(self):
         self.timeouts = {
             "BOOT" : 300, 
@@ -292,48 +252,57 @@ class Tester:
             "V910" : 300
         }
         self.logging.warning("debug_set_high_timeouts")
-        
+
+    def press_button(self, relay, hold_time):
+        try:
+            client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
+            client.connect()
+            client.turn_on(relay)
+            self.sleep(hold_time)
+            client.turn_off(relay)
+            client.disconnect()
+        except Exception as e:
+            self.logging.warning(e)
+
     def power_cycle(self, count_enable):
+        """
+        Power cycle the TARGET BOARD, and optionally increment the power cycle counter.
+        Args:
+            count_enable (bool): Whether to increment the power cycle counter.
+        """
         self.first_boot = True
-        self.dmesg_index = 1
-        ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
-        if ser != None:
-            ser.dtr = True
-            self.sleep(1)
-            ser.dtr = False
-            self.sleep(3)
-            ser.dtr = True
-            self.sleep(1)
-            ser.dtr = False
-            ser.close()
+        self.dmesg_diff = 1
+
+        self.press_button(self.POWER_RELAY_ID, 0.25)
+        self.sleep(1)
+        self.press_button(self.POWER_RELAY_ID, 0.25)
+
         if count_enable == True:
             self.power_cycle_counter += 1
         self.logging.warning("Power Cycle")
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
             self.logging.info("Booted")
             self.set_voltage()
-            
 
     def power_button(self):
+        """
+        Simulate pressing the power button on the TARGET BOARD.
+        """
         self.first_boot = True
-        self.dmesg_index = 1
-        ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
-        if ser != None:
-            ser.dtr = True
-            self.sleep(2)
-            ser.dtr = False
-            self.sleep(2)
-            ser.close()
+        self.dmesg_diff = 1
+
+        self.press_button(self.POWER_RELAY_ID, 0.25)
 
     def reset_button(self):
+        """
+        Simulate pressing the reset button on the TARGET BOARD, 
+        and increment the reset counter.
+        """
         self.first_boot = True
         self.dmesg_index = 1
-        ser = self.find_reset_uart(self.VID, self.PID, self.SERIAL_NUM)
-        if ser != None:
-            ser.rts = True
-            self.sleep(1)
-            ser.rts = False
-            ser.close()
+
+        self.press_button(self.RESET_RELAY_ID, 0.25)
+
         self.reset_counter +=1
         self.logging.warning('Reset')
         if self.remote_alive(self.BOOT_TIMEOUT_SEC):
@@ -540,16 +509,19 @@ class Tester:
     
     
     def get_timeouts(self):
+
         try:
-            VID = '0403'
-            PID = '6001'
-            SERIAL_NUM = 'A50285BI'
-            ser = self.find_reset_uart(VID, PID, SERIAL_NUM)
-            if ser != None:
-                ser.rts = True
-                self.sleep(1)
-                ser.rts = False
-                ser.close()
+            client = GPIOClient(self.GPIO_HOST_IP, self.GPIO_HOST_PORT)
+            client.connect()
+
+            client.turn_on(self.RESET_RELAY_ID)
+            self.sleep(2)
+            client.turn_off(self.RESET_RELAY_ID)
+            client.disconnect()
+        except:
+            self.logging.error("Remote GPIO is down...")
+
+        try:
             start = self.timeit.default_timer()
             self.remote_alive(self.BOOT_TIMEOUT_SEC)
             time = str(self.math.ceil(self.timeit.default_timer() - start))
