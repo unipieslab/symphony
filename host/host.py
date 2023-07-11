@@ -220,7 +220,7 @@ class Tester:
         self.EXECUTION_ATTEMPT = 1
         self.NETWORK_TIMEOUT_SEC = 2
 
-        self.TARGET_IP = "10.30.0.67"
+        self.TARGET_IP = "10.30.0.65"
         self.TARGET_PORT = 18861 
 
         self.GPIO_HOST_IP = "10.30.0.63"
@@ -665,13 +665,7 @@ class Tester:
         This function saves the current thresholds to a JSON file.
         """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
-        directory = "./config/" + str(self.SET_UP_ID)
         threshold_file = "./config/" + filename
-
-        try:
-            self.os.mkdir(directory)
-        except:
-            pass
 
         threshold = {
             "current_pmd_threshold_max": str(self.current_pmd_threshold_max),
