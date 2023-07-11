@@ -1,3 +1,3 @@
 #!/bin/bash
 
-python3.9 press_button.py --power-button 1
+python3.9 press_button.py --power-button 2

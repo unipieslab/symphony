@@ -121,17 +121,17 @@ class Tester:
             "EP" : '/usr/lib64/openmpi/bin/mpirun --oversubscribe -np 8 /home/eslab/bench/NPB2.4.1/NPB2.4-MPI/bin/ep.A.8'
         }
         
-        self.voltage_list = ["VID16", "VID42", "VID43", "VID44", "VID45"]
+        self.voltage_list = ["VID16", "VID45", "VID46", "VID47", "VID48"]
         self.voltage_commands = {
+            "VID48" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 48',
+            "VID47" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 47',
+            "VID46" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 46', 
             "VID45" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 45',
-            "VID44" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 44',
-            "VID43" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 43', 
-            "VID42" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 42',
             "VID16" : 'sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 16'  
         }
 
-        self.LOWER_FREQUENCY_ID = "84"
-        self.LOWER_FREQUENCY_DID = "C"
+        self.LOWER_FREQUENCY_ID = "80"
+        self.LOWER_FREQUENCY_DID = "10"
         self.SET_LOWER_FREQUENCY = False
 
         self.MID_FREQUENCY_ID = "8A"
@@ -148,17 +148,17 @@ class Tester:
 
         #HDD
         self.timeouts = {
-            "BOOT" : 50, 
+            "BOOT" : 65, 
             "MG" : 7,
-            "CG" : 3,
+            "CG" : 5,
             "FT" : 7,
             "IS" : 5,
             "LU" : 15,
-            "EP" : 5,
-            "VID45" : 3, 
-            "VID44" : 3,
-            "VID43" : 3,
-            "VID42" : 3,
+            "EP" : 7,
+            "VID48" : 3, 
+            "VID47" : 3,
+            "VID46" : 3,
+            "VID45" : 3,
             "VID16" : 3
         }
 
@@ -220,14 +220,14 @@ class Tester:
         self.EXECUTION_ATTEMPT = 1
         self.NETWORK_TIMEOUT_SEC = 2
 
-        self.TARGET_IP = "10.30.0.66"
+        self.TARGET_IP = "10.30.0.67"
         self.TARGET_PORT = 18861 
 
         self.GPIO_HOST_IP = "10.30.0.63"
         self.GPIO_HOST_PORT = 18861
 
-        self.POWER_RELAY_ID = 3
-        self.RESET_RELAY_ID = 3
+        self.POWER_RELAY_ID = 4
+        self.RESET_RELAY_ID = 4
 
         #DEBUG
         self.DISABLE_RESET = False
@@ -360,10 +360,10 @@ class Tester:
             "IS" : 300,
             "LU" : 300,
             "EP" : 300,
-            "VID45" : 300, 
-            "VID44" : 300,
-            "VID43" : 300,
-            "VID42" : 300,
+            "VID48" : 300, 
+            "VID47" : 300,
+            "VID46" : 300,
+            "VID45" : 300,
             "VID16" : 300
         }
         self.logging.warning("debug_set_high_timeouts")
@@ -742,30 +742,30 @@ class Tester:
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("voltage_config_time VID16: " + voltage_config_time)
+            self.logging.info("voltage_config_time VID21: " + voltage_config_time)
 
-            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 42" 
+            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 45" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("voltage_config_time VID42: " + voltage_config_time)
+            self.logging.info("voltage_config_time VID38: " + voltage_config_time)
 
-            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 43" 
+            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 46" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("voltage_config_time VID43: " + voltage_config_time)
+            self.logging.info("voltage_config_time VID39: " + voltage_config_time)
 
-            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 44" 
+            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 47" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("voltage_config_time VID44: " + voltage_config_time)
+            self.logging.info("voltage_config_time VID40: " + voltage_config_time)
 
             start = self.timeit.default_timer()
             self.remote_execute(self.BENCHMARK_COMMAND, 100, self.NETWORK_TIMEOUT_SEC, 1, 1)
             time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("benchmark_time VID44 " + self.CURRENT_BENCHMARK_ID + ":" + time)
+            self.logging.info("benchmark_time VID47 " + self.CURRENT_BENCHMARK_ID + ":" + time)
 
             for item in self.benchmarks_list:
                 self.CURRENT_BENCHMARK_ID = item
@@ -773,13 +773,13 @@ class Tester:
                 start = self.timeit.default_timer()
                 self.remote_execute(self.BENCHMARK_COMMAND, 100, self.NETWORK_TIMEOUT_SEC, 1, 1)
                 time = str(self.math.ceil(self.timeit.default_timer() - start))
-                self.logging.info("benchmark_time VID44 " + self.CURRENT_BENCHMARK_ID + ":" + time)
+                self.logging.info("benchmark_time VID40 " + self.CURRENT_BENCHMARK_ID + ":" + time)
 
-            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 45" 
+            self.COMMAND_VOLTAGE = "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 48" 
             start = self.timeit.default_timer()
             self.set_voltage()
             voltage_config_time = str(self.math.ceil(self.timeit.default_timer() - start))
-            self.logging.info("voltage_config_time VID45: " + voltage_config_time)
+            self.logging.info("voltage_config_time VID48: " + voltage_config_time)
 
         except Exception as e:
             self.logging.warning(e)
@@ -1032,14 +1032,14 @@ class Tester:
 
     def switch_to_mid_frequency(self):
         # Change the timeouts and the voltage commands
-        self.voltage_list = ["VID16", "VID76", "VID77", "VID78", "VID79"]
+        self.voltage_list = ["VID16", "VID78", "VID79", "VID80", "VID81"]
 
         self.voltage_commands = {
             "VID16": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 16",
-            "VID76": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 76",
-            "VID77": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 77",
             "VID78": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 78",
-            "VID79": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 79"
+            "VID79": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 79",
+            "VID80": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 80",
+            "VID81": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 81"
         }
         
         self.timeouts = {
@@ -1051,22 +1051,22 @@ class Tester:
             "LU": 16,
             "EP": 6,
             "VID16": 3,
-            "VID76": 3,
-            "VID77": 3,
             "VID78": 3,
-            "VID79": 3
+            "VID79": 3,
+            "VID80": 3,
+            "VID81": 3
         }
 
     def switch_to_lower_frequency(self):
         # Change the timeouts and the voltage commands
-        self.voltage_list = ["VID16", "VID76", "VID77", "VID78", "VID79"]
+        self.voltage_list = ["VID16", "VID78", "VID79", "VID80", "VID81"]
 
         self.voltage_commands = {
             "VID16": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 16",
-            "VID76": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 76",
-            "VID77": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 77",
             "VID78": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 78",
-            "VID79": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 79"
+            "VID79": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 79",
+            "VID80": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 80",
+            "VID81": "sudo /home/eslab/undervolt/ZenStates-Linux/zenstates.py -p0 --vid 81"
         }
         
         self.timeouts = {
@@ -1078,10 +1078,10 @@ class Tester:
             "LU": 16,
             "EP": 6,
             "VID16": 3,
-            "VID76": 3,
-            "VID77": 3,
             "VID78": 3,
-            "VID79": 3
+            "VID79": 3,
+            "VID80": 3,
+            "VID81": 3
         }
 
     def switch_frequency(self, is_lower_freq):
