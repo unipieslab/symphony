@@ -3,6 +3,8 @@ import sys # for exit
 import orjson
 import subprocess
 from GPIOClient import GPIOClient
+import os
+import statistics
 
 class Tester:
     import traceback
@@ -17,6 +19,7 @@ class Tester:
     import math
     from datetime import timedelta
     import os 
+    import requests
 
     os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "20.0" 
 
@@ -67,20 +70,11 @@ class Tester:
         regex = r'Verification( +)=(. +.*)'
         self.verification_regex = self.re.compile(regex, self.re.IGNORECASE)
         
-        regex = r'SVI2_P_Core:\s+(\d+\.\d+)'
-        self.power_pmd_regex = self.re.compile(regex, self.re.IGNORECASE)
-
-        regex = r'SVI2_P_SoC:\s+(\d+\.\d+)'
-        self.power_soc_regex = self.re.compile(regex, self.re.IGNORECASE)
-
-        regex = r'SVI2_Core:\s+(\d+\.\d+)'
-        self.voltage_pmd_regex = self.re.compile(regex, self.re.IGNORECASE)
-
-        regex = r'SVI2_SoC:\s+(\d+\.\d+)'
-        self.voltage_soc_regex = self.re.compile(regex, self.re.IGNORECASE)
-
-        regex = r'Tdie:\s+.(\d+\.\d+)'
-        self.temp_regex = self.re.compile(regex, self.re.IGNORECASE)
+        self.power_pmd_regex = r'SVI2_P_Core:\s+(\d+\.\d+)'
+        self.power_soc_regex = r'SVI2_P_SoC:\s+(\d+\.\d+)'
+        self.voltage_pmd_regex = r'SVI2_Core:\s+(\d+\.\d+)'
+        self.voltage_soc_regex = r'SVI2_SoC:\s+(\d+\.\d+)'
+        self.temp_regex = r'Tdie:\s+.(\d+\.\d+)'
 
         regex = r'(cache level: L1)'
         self.L1_detected_regex = self.re.compile(regex, self.re.IGNORECASE)
@@ -89,11 +83,11 @@ class Tester:
         regex = r'(cache level: L3)'
         self.L3_detected_regex = self.re.compile(regex, self.re.IGNORECASE)
 
-        regex = r'mce: .Hardware Error.: Machine check events logged\n*.+Corrected error.+\n*.+\n*.+\n*.+\n*.+\n*.+cache level: L1'
+        regex = r'.Hardware Error.: Corrected error.*(\n.*){1,8}cache level: L1'
         self.L1_corected_regex = self.re.compile(regex, self.re.IGNORECASE)
-        regex = r'mce: .Hardware Error.: Machine check events logged\n*.+Corrected error.+\n*.+\n*.+\n*.+\n*.+\n*.+cache level: L2'
+        regex = r'.Hardware Error.: Corrected error.*(\n.*){1,8}cache level: L2'
         self.L2_corected_regex = self.re.compile(regex, self.re.IGNORECASE)
-        regex = r'mce: .Hardware Error.: Machine check events logged\n*.+Corrected error.+\n*.+\n*.+\n*.+\n*.+\n*.+cache level: L3'
+        regex = r'.Hardware Error.: Corrected error.*(\n.*){1,8}cache level: L3'
         self.L3_corected_regex = self.re.compile(regex, self.re.IGNORECASE)
 
         self.power_cycle_counter = 0
@@ -102,7 +96,7 @@ class Tester:
         self.run_counter = 0
         self.effective_total_elapsed_minutes = 0
         self.sdc_counter = 0 
-        self.experiment_total_elapsed_sec = 0.0
+        self.experiment_total_elapsed_sec = 0.1
         self.experiment_start_time = self.time()    
 
         self.first_boot = True
@@ -199,7 +193,7 @@ class Tester:
         self.FINISH_AFTER_TOTAL_ERRORS = 100 
         self.TOTAL_ERRORS = 0
         self.TIMEOUT_SCALE_BENCHMARK = 2 * self.batch_per_benchmark[self.CURRENT_BENCHMARK_ID] 
-        self.TIMEOUT_SCALE_BOOT = 1.1
+        self.TIMEOUT_SCALE_BOOT = 1.0
         self.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.0 
         self.TIMEOUT_SCALE_VOLTAGE = 1.2
         self.RESET_AFTER_CONCECUTIVE_ERRORS = 2
@@ -226,12 +220,24 @@ class Tester:
         self.GPIO_HOST_IP = "10.30.0.63"
         self.GPIO_HOST_PORT = 18861
 
-        self.POWER_RELAY_ID = 3
-        self.RESET_RELAY_ID = 3
+        self.POWER_RELAY_ID = 4
+        self.RESET_RELAY_ID = 4
 
         #DEBUG
         self.DISABLE_RESET = False
         self.SAVE_THRESHOLDS = True
+
+        # IPOWER
+        ipower_ip = '10.30.0.57'
+        ipower_port = 80
+        # Define the URL of the web interface and the button press endpoint
+        self.url_on_off = f'http://{ipower_ip}:{ipower_port}/offon.cgi?led=000000010000000000000000'
+        self.url_off = f'http://{ipower_ip}:{ipower_port}/offs.cgi?led=000000010000000000000000'
+        self.url_on = f'http://{ipower_ip}:{ipower_port}/ons.cgi?led=000000010000000000000000'
+        # Define the credentials
+        self.username = 'snmp'
+        self.password = '1234'
+
 
         #DON'T TOUCH
 
@@ -276,10 +282,17 @@ class Tester:
         self.run_counter = 0
         self.effective_total_elapsed_minutes = 0
         self.sdc_counter = 0 
-        self.experiment_total_elapsed_sec = 0.0
-        self.experiment_start_time = self.time()    
+        #self.experiment_total_elapsed_sec = 0.0
+        #self.experiment_start_time = self.time()    
 
-        self.restore_thresholds()    
+        self.restore_thresholds()
+        
+        if self.SET_LOWER_FREQUENCY == True:
+            self.set_frequency(self.LOWER_FREQUENCY_ID, self.LOWER_FREQUENCY_DID)
+        if self.SET_MID_FREQUENCY == True:
+            self.set_frequency(self.MID_FREQUENCY_ID, self.MID_FREQUENCY_DID)
+
+        self.set_voltage()
 
     def set_benchmark_voltage_id(self, id_str, voltage_id_str):
         """
@@ -330,11 +343,11 @@ class Tester:
         results_div_id = self.remote_execute(command_div_id, self.VOLTAGE_CONFIG_TIMEOUT, self.NETWORK_TIMEOUT_SEC, 1, 1)[0]
 
         if self.SET_LOWER_FREQUENCY == True:
-            self.logging.warning("setting to lower frequency...")
+            self.logging.warning("setting to lower frequency")
         else:
-            self.logging.warning("setting to mid frequency...")
+            self.logging.warning("setting to mid frequency")
         if results_freq_id["return_code"] != '0' or results_div_id["return_code"] != "0":
-             self.logging.warning('Failed to configure lower frequency...')
+             self.logging.warning('Failed to configure lower frequency')
 
     def get_voltage_list(self):
         return self.voltage_list
@@ -379,6 +392,23 @@ class Tester:
         except Exception as e:
             self.logging.warning(e)
 
+    def reset_power_cycle_common(self):
+        # Define the IP address and port of the IPower device
+        
+        # Create a session and authenticate with the web interface
+        session = self.requests.Session()
+        session.auth = (self.username, self.password)
+
+
+        response = session.get(self.url_off, params={'action': 'OFF'})
+        self.sleep(4)
+        response = session.get(self.url_on, params={'action': 'ON'})
+        self.sleep(10)
+        response = session.get(self.url_on, params={'action': 'ON'})
+        self.sleep(2)
+        self.press_button(self.POWER_RELAY_ID, 0.3)
+
+
     def power_cycle(self, count_enable):
         """
         Power cycle the TARGET BOARD, and optionally increment the power cycle counter.
@@ -388,8 +418,13 @@ class Tester:
         self.first_boot = True
         self.dmesg_diff = 1
 
-        self.press_button(self.POWER_RELAY_ID, 4)
-        self.press_button(self.POWER_RELAY_ID, 1)
+        #input("Power OFF and ON. When DONE Press Enter to continue...")
+
+        self.reset_power_cycle_common()
+        
+        # self.press_button(self.POWER_RELAY_ID, 0.400)
+        # self.sleep(5)
+        # self.press_button(self.POWER_RELAY_ID, 0.400)
 
         if count_enable == True:
             self.power_cycle_counter += 1
@@ -402,14 +437,14 @@ class Tester:
                 self.set_frequency(self.MID_FREQUENCY_ID, self.MID_FREQUENCY_DID)
             self.set_voltage()
 
-    def power_button(self):
-        """
-        Simulate pressing the power button on the TARGET BOARD.
-        """
-        self.first_boot = True
-        self.dmesg_diff = 1
+    # def power_button(self):
+    #     """
+    #     Simulate pressing the power button on the TARGET BOARD.
+    #     """
+    #     self.first_boot = True
+    #     self.dmesg_diff = 1
 
-        self.press_button(self.POWER_RELAY_ID, 1)
+    #     self.press_button(self.POWER_RELAY_ID, 0.200)
 
     def reset_button(self):
         """
@@ -419,8 +454,12 @@ class Tester:
         self.first_boot = True
         self.dmesg_index = 1
 
-        self.press_button(self.RESET_RELAY_ID, 4)
-        self.press_button(self.POWER_RELAY_ID, 1)
+        # self.press_button(self.RESET_RELAY_ID, 0.400)
+        # self.sleep(5)
+        # self.press_button(self.POWER_RELAY_ID, 0.40)
+        self.reset_power_cycle_common()
+
+        #input("Power OFF and ON. When DONE Press Enter to continue...")
 
         self.reset_counter +=1
         self.logging.warning('Reset')
@@ -449,7 +488,8 @@ class Tester:
         self.logging.info('Checking if remote is up')
         alive = False
         sleep_sec_excep = 0.5 
-        conn_count_thresh =  int(boot_timeout_sec / sleep_sec_excep)
+        #conn_count_thresh =  int(boot_timeout_sec / sleep_sec_excep)
+        conn_count_thresh = 35
         attemp_counter = 0
         while True:
             try:
@@ -494,11 +534,12 @@ class Tester:
     def clasify_exec_error(self):
         try:
             if (self.is_application_alive()):
-                self.logging.error("Application crash...")
+                self.logging.error("Application crash")
                 self.application_crash_per_benchmark[self.CURRENT_BENCHMARK_ID] += 1
             else:
-                self.logging.error("Network error...")
+                self.logging.error("Network error")
                 self.network_errors_per_benchmark[self.CURRENT_BENCHMARK_ID] += 1
+            self.TOTAL_ERRORS += 1
         except Exception as e:
             self.logging.warning(e)
 
@@ -571,6 +612,9 @@ class Tester:
                     was_first_error = True
                     conn_count_thresh =  int(network_timout_sec / sleep_sec_excep)
   
+    def result_exists(self, result_file_name):
+        return os.path.isfile(result_file_name);            
+
     def save_result(self, results, run_counter, correct):
         """
         Save the results of a command execution on the TARGET BOARD.
@@ -587,7 +631,8 @@ class Tester:
         """
         now = self.datetime.now() # current date and time
         result_date = now.strftime("%m_%d_%Y__%H_%M_%S")
-        result_file_name = 'results/' + self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_" + result_date + '.json'
+        result_file_name = 'results/' + self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_" + str(run_counter) + "_" + result_date + ".json"
+
         result = {
                     "timestamp" : results["timestamp"],
                     "run_command": results["run_command"],
@@ -610,7 +655,7 @@ class Tester:
         This state includes reset counter, power cycle counter, elapsed minutes, 
         SDC (silent data corruption) counter, run counter, and total elapsed seconds.
         """
-        if self.SET_LOWER_FREQUENCY == False:
+        if self.SET_LOWER_FREQUENCY == False and self.SET_MID_FREQUENCY == False:
             filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
         elif self.SET_MID_FREQUENCY == True:
             filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state_mid_freq.json"
@@ -626,7 +671,13 @@ class Tester:
                     "run_counter" : str(self.run_counter),
                     "experiment_total_elapsed_sec" : str(self.experiment_total_elapsed_sec),
                     "application_crash_per_benchmark": self.application_crash_per_benchmark,
-                    "network_errors_per_benchmark": self.network_errors_per_benchmark
+                    "network_errors_per_benchmark": self.network_errors_per_benchmark,
+                    "L1_ERRORS_DETECTED": self.L1_ERRORS_DETECTED,
+                    "L2_ERRORS_DETECTED": self.L2_ERRORS_DETECTED,
+                    "L3_ERRORS_DETECTED": self.L3_ERRORS_DETECTED,
+                    "L1_ERRORS_CORECTED": self.L1_ERRORS_CORECTED,
+                    "L2_ERRORS_CORECTED": self.L2_ERRORS_CORECTED,
+                    "L3_ERRORS_CORECTED": self.L3_ERRORS_CORECTED
         }
         try:
             with open(state_file, "w") as json_file:
@@ -639,7 +690,7 @@ class Tester:
         This function restores the state of the experiment from a JSON file.
         If the file is not found, a warning is logged.
         """
-        if self.SET_LOWER_FREQUENCY == False:
+        if self.SET_LOWER_FREQUENCY == False and self.SET_MID_FREQUENCY == False:
             filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state.json"
         elif self.SET_MID_FREQUENCY == True:
             filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_state_mid_freq.json"
@@ -655,9 +706,18 @@ class Tester:
                 self.effective_total_elapsed_minutes = float(state["effective_total_elapsed_minutes"])
                 self.sdc_counter = int(state["sdc_counter"])
                 self.run_counter = int(state["run_counter"])
-                self.experiment_total_elapsed_sec = float(state["experiment_total_elapsed_sec"])
+                self.experiment_total_elapsed_sec += float(state["experiment_total_elapsed_sec"])
                 self.application_crash_per_benchmark = state["application_crash_per_benchmark"]
                 self.network_errors_per_benchmark = state["network_errors_per_benchmark"]
+                self.L1_ERRORS_DETECTED  = state["L1_ERRORS_DETECTED"]
+                self.L2_ERRORS_DETECTED  = state["L2_ERRORS_DETECTED"]
+                self.L3_ERRORS_DETECTED  = state["L3_ERRORS_DETECTED"]
+                self.L1_ERRORS_CORECTED  = state["L1_ERRORS_CORECTED"]
+                self.L2_ERRORS_CORECTED  = state["L2_ERRORS_CORECTED"]
+                self.L3_ERRORS_CORECTED  = state["L3_ERRORS_CORECTED"]
+                # Try to restore experiement total time.
+                self.experiment_start_time -= self.effective_total_elapsed_minutes * 60 
+
         except Exception:
             self.logging.warning(state_file + " file not found") 
     
@@ -667,7 +727,7 @@ class Tester:
         """
         filename = self.CURRENT_BENCHMARK_ID + "_" + self.CURRENT_VOLTAGE_ID + "_thresholds.json"
         threshold_file = "./config/" + filename
-
+        
         threshold = {
             "current_pmd_threshold_max": str(self.current_pmd_threshold_max),
             "current_soc_threshold_max" : str(self.current_soc_threshold_max),
@@ -698,7 +758,6 @@ class Tester:
         except Exception as e:
             self.logging.warning(e)
     
-
     def is_result_correct(self, result):
         """
         Checks if the result of the benchmarking test is "SUCCESSFUL". If there is an exception 
@@ -791,22 +850,21 @@ class Tester:
         critical message if they do. If an exception occurs during parsing, it logs the exception.
         """
         try:
-            power_pmd_str = self.power_pmd_regex.search(healthlog)
-            power_soc_str = self.power_soc_regex.search(healthlog)
-            voltage_pmd_str = self.voltage_pmd_regex.search(healthlog)
-            voltage_soc_str = self.voltage_soc_regex.search(healthlog)
-            temp_str = self.temp_regex.search(healthlog)
+            power_pmd_list = [float(i) for i in self.re.findall(self.power_pmd_regex, healthlog, 0)]
+            power_soc_list = [float(i) for i in self.re.findall(self.power_soc_regex, healthlog, 0)]
+            voltage_pmd_list = [float(i) for i in self.re.findall(self.voltage_pmd_regex, healthlog, 0)]
+            voltage_soc_list = [float(i) for i in self.re.findall(self.voltage_soc_regex, healthlog, 0)]
+            temp_list = [float(i) for i in self.re.findall(self.temp_regex, healthlog, 0)]
 
-            power_pmd = float(power_pmd_str.group(1))
-            power_soc = float(power_soc_str.group(1))
-
-            voltage_pmd = float(voltage_pmd_str.group(1))
-            voltage_soc = float(voltage_soc_str.group(1))
+            power_pmd = statistics.mean(power_pmd_list)
+            power_soc = statistics.mean(power_soc_list)
+            voltage_pmd = statistics.mean(voltage_pmd_list)
+            voltage_soc = statistics.mean(voltage_soc_list)
             
             current_pmd = round((power_pmd / (voltage_pmd)),2)
             current_soc = round((power_soc / (voltage_soc)),2)
 
-            temp_pmd = float(temp_str.group(1))
+            temp_pmd = statistics.mean(temp_list)
     
             power_curr_volt_temp_str = "MONITOR: PMD = "+ str(power_pmd) + "(W)/" + str(current_pmd) + "(A)/" + str(voltage_pmd) +"(V)/" \
                 + str(temp_pmd)+"(C) | SoC = "+ str(power_soc) + "(W)/" + str(current_soc) + "(A)/" + str(voltage_soc) +"(V)/"
@@ -843,27 +901,32 @@ class Tester:
             self.logging.warning(e)
     
     def detect_cache_errors(self, dmesg):
-        check_L1 = self.L1_detected_regex.search(dmesg)
-        if check_L1:
-            self.L1_ERRORS_CORECTED += 1
-            check_if_corected = self.L1_corected_regex.search(dmesg)
-            if check_if_corected:
-                self.L1_ERRORS_CORECTED += 1
+        check_L1 = self.L1_detected_regex.findall(dmesg)
+        self.L1_ERRORS_DETECTED += len(check_L1)
+        check_if_corected = self.L1_corected_regex.findall(dmesg)
+        self.L1_ERRORS_CORECTED += len(check_if_corected)
         
-        check_L2 = self.L2_detected_regex.search(dmesg)
-        if check_L2:
-            self.L2_ERRORS_CORECTED += 1
-            check_if_corected = self.L2_corected_regex.search(dmesg)
-            if check_if_corected:
-                self.L2_ERRORS_CORECTED += 1
+        check_L2 = self.L2_detected_regex.findall(dmesg)
+        self.L2_ERRORS_DETECTED += len(check_L2)
+        check_if_corected = self.L2_corected_regex.findall(dmesg)
+        self.L2_ERRORS_CORECTED += len(check_if_corected)
         
-        check_L3 = self.L3_detected_regex.search(dmesg)
-        if check_L3:
-            self.L3_ERRORS_CORECTED += 1
-            check_if_corected = self.L3_corected_regex.search(dmesg)
-            if check_if_corected:
-                self.L3_ERRORS_CORECTED += 1
+        check_L3 = self.L3_detected_regex.findall(dmesg)
+        self.L3_ERRORS_DETECTED += len(check_L3)
+        check_if_corected = self.L3_corected_regex.findall(dmesg)
+        self.L3_ERRORS_CORECTED += len(check_if_corected)
 
+    def save_hardware_errors(self, dmesg):
+        try:
+            filename = "hardware_errors_" + self.CURRENT_VOLTAGE_ID + ".txt"
+            hd_regex = r'.Hardware Error.*'
+            with open("./config/" + filename, "a") as hd_file:
+                results = self.re.findall(hd_regex, dmesg)  
+                for result in results:
+                    hd_file.write(result + "\n")
+        except Exception as e:
+            self.logging.warning(e)
+    
     def experiment_start(self):
         """
         This method initiates an experiment run, and includes all steps required for
@@ -905,7 +968,7 @@ class Tester:
         experiment_elapsed_sec_str = ""
         self.logging.info('Starting... Benchmark: ' + self.BENCHMARK_COMMAND)
         
-        self.power_cycle(False)
+        #self.power_cycle(False)
         
         error_consecutive = 0
 
@@ -924,13 +987,14 @@ class Tester:
                     results = self.remote_execute(self.BENCHMARK_COMMAND, self.BENCHMARK_TIMEOUT, self.NETWORK_TIMEOUT_SEC, self.dmesg_index, self.batch_per_benchmark[self.CURRENT_BENCHMARK_ID])
                     last_execution = self.batch_per_benchmark[self.CURRENT_BENCHMARK_ID] - 1
                     self.dmesg_diff = results[last_execution]["dmesg_diff"]
-                
+            
                 for result in results:
                     self.run_counter += 1 
                     self.effective_total_elapsed_minutes += (float(result["duration_ms"])/1000)/60          
                     correct = self.is_result_correct(result["stdoutput"])
                     self.save_result(result, str(self.run_counter), str(correct))
                     self.detect_cache_errors(result["dmesg_diff"])
+                    self.save_hardware_errors(result["dmesg_diff"])
 
                     if correct == False:
                         self.logging.error("Result SDC detected")
@@ -948,8 +1012,9 @@ class Tester:
                     self.parse_monitor_data(result["healthlog"])
 
                 effective_elapsed_min = str("{:.2f}".format(round(self.effective_total_elapsed_minutes, 2)))
+                self.experiment_total_elapsed_sec = (self.time() - self.experiment_start_time)
+                experiment_total_elapsed_min = self.experiment_total_elapsed_sec / 60
 
-               
                 log_str = "Resets: " + str(self.reset_counter) + " | PowerCycles: " + str(self.power_cycle_counter) \
                     + " | Effective-elapsed(min): " + str(effective_elapsed_min)
                 self.logging.info(log_str)
@@ -959,29 +1024,37 @@ class Tester:
                                 " | SDCs: "+ str(self.sdc_counter)
                 self.logging.info(log_errors_str)
 
-                log_errors_str = "Total Cache Errors | L1: "+ str(self.L1_ERRORS_DETECTED) + \
+                log_errors_str = "Total Cache upsets | L1: "+ str(self.L1_ERRORS_DETECTED) + \
                                 " | L2: "+ str(self.L2_ERRORS_DETECTED) + \
                                 " | L3: "+ str(self.L3_ERRORS_DETECTED)
                 self.logging.info(log_errors_str)
 
-                log_errors_str = "Total Cache Errors Corrected | L1: "+ str(self.L1_ERRORS_CORECTED) + \
+                log_errors_str = "Total Cache upsets/Min | L1: "+ str(self.L1_ERRORS_DETECTED / experiment_total_elapsed_min) + \
+                                " | L2: "+ str(self.L2_ERRORS_DETECTED / experiment_total_elapsed_min) + \
+                                " | L3: "+ str(self.L3_ERRORS_DETECTED / experiment_total_elapsed_min)
+                self.logging.info(log_errors_str)
+
+                log_errors_str = "Total Cache upsets Corrected | L1: "+ str(self.L1_ERRORS_CORECTED) + \
                                 " | L2: "+ str(self.L2_ERRORS_CORECTED) + \
                                 " | L3: "+ str(self.L3_ERRORS_CORECTED)
                 self.logging.info(log_errors_str)
 
+                log_errors_str = "Total Cache upsets Corrected/Min | L1: "+ str(self.L1_ERRORS_CORECTED / experiment_total_elapsed_min) + \
+                                " | L2: "+ str(self.L2_ERRORS_CORECTED / experiment_total_elapsed_min) + \
+                                " | L3: "+ str(self.L3_ERRORS_CORECTED / experiment_total_elapsed_min)
+                self.logging.info(log_errors_str)
+
                 network_errors_per_min = self.network_errors_per_benchmark[self.CURRENT_BENCHMARK_ID] / self.effective_total_elapsed_minutes
-                application_crash_per_min = self.application_crash_per_benchmark[self.CURRENT_BENCHMARK_ID] / self.effective_total_elapsed_minutes 
-                total_errors_per_min = self.TOTAL_ERRORS / self.effective_total_elapsed_minutes
-                self.logging.info("Network errors/Min: "+ str(network_errors_per_min)  + \
+                application_crash_per_min = self.application_crash_per_benchmark[self.CURRENT_BENCHMARK_ID] / self.effective_total_elapsed_minutes
+                total_errors_per_min = self.TOTAL_ERRORS / self.experiment_total_elapsed_sec
+                self.logging.info(self.CURRENT_BENCHMARK_ID + "| Network errors/Min: "+ str(network_errors_per_min)  + \
                                   " | App crash/Min: "+ str(application_crash_per_min) + \
                                   " | Total errors/Min: "+ str(total_errors_per_min) + "")
 
-                self.experiment_total_elapsed_sec = (self.time() - self.experiment_start_time)
                 experiment_elapsed_sec_str = str(self.timedelta(seconds=self.experiment_total_elapsed_sec))
                 self.logging.info("Total elapsed: "+ experiment_elapsed_sec_str + \
                     " (BENCH_ID = " + self.CURRENT_BENCHMARK_ID + " | VOLTAGE_ID = " + self.CURRENT_VOLTAGE_ID + ")")
 
-            
                 if error_consecutive == self.RESET_AFTER_CONCECUTIVE_ERRORS:
                     self.logging.warning("Reseting DUT. Error_consecutive: " + str(error_consecutive))
                     self.TOTAL_ERRORS += 1
@@ -1100,7 +1173,7 @@ def execute_benchmarks_per_voltage(test: Tester):
     test.calculate_batch_per_benchmark()
 
     # Set the thresholds for experiment termination
-    finsh_after_effective_total_elapsed_minutes = 15 # minutes
+    finsh_after_effective_total_elapsed_minutes = 60 # minutes
     finish_after_total_errors = 100
 
     for voltage_id in voltage_list:
@@ -1115,6 +1188,7 @@ def execute_benchmarks_per_voltage(test: Tester):
 def main():
     # Initialize Tester object
     test = Tester()
+    test.power_cycle(False)
     execute_benchmarks_per_voltage(test)
 
     test.switch_frequency(False)
