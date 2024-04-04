@@ -17,6 +17,7 @@ from datetime import timedelta
 import os 
 import requests
 from enum import Enum
+import pickle
 
 #from GPIOClient import GPIOClient
 
@@ -151,6 +152,7 @@ class Tester_Shell:
         # Run related
         self.__current_benchmark_id: str = ""
         self.__current_voltage_id: str = ""
+        self.__setup_id: str = ""
         self.__current_benchmark_command: str = ""
         self.__current_voltage_command: str = ""
 
@@ -187,7 +189,6 @@ class Tester_Shell:
         logging.getLogger().addHandler(screen_handler)    
 
     def __update(self):
-        self.__current_benchmark_id = 
         self.__timeout_scale_benchmark = 2 * self.batch_per_benchmark[self.__current_benchmark_id] 
         self.__current_benchmark_command = self.benchmark_commands[self.__current_benchmark_id]
         self.__current_voltage_command = self.voltage_commands[self.__current_voltage_id]
@@ -200,20 +201,21 @@ class Tester_Shell:
         self.__target_set_frequency()
 
     def __target_set_voltage(self):
-        # TOOD - Remote execute the command to set the voltage.
-        pass
+        self.logging.info('Configuring voltage: ' + self.__current_voltage_id)
+        self._remote_execute(self.__timeouts[self.__current_voltage_id],
+                             Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 1, 1, False)[0]
 
     def __target_set_frequency(self):
         pass
 
-    def __generate_result_name(self):
-        now = self.datetime.now() # current date and time
+    def __generate_result_name(self, ):
+        now = datetime.now() # current date and time
         result_date = now.strftime("%m_%d_%Y__%H_%M_%S")
-        result_file_name = 'results/' + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_" + result_date + ".json"
+        result_file_name = "results/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_" + result_date + ".json"
 
         return result_file_name
 
-    def __target_connect_common(self, excp_timeout_s: int, net_timeout_s: int, ):
+    def __target_connect_common(self, excp_timeout_s: int, net_timeout_s: int, ret_imediate: bool):
         sleep_sec_excep = 0.5 
         conn_count_thresh =  int(excp_timeout_s / sleep_sec_excep)
         attemp_counter = 0
@@ -237,6 +239,8 @@ class Tester_Shell:
                 self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 sleep(sleep_sec_excep)
                 if conn_count_thresh <= 0:
+                    if (ret_imediate == True):
+                        return
                     self._ovrd_unused_target_reset_button()
                     first_error = True
                     conn_count_thresh = int(net_timeout_s / sleep_sec_excep)
@@ -283,6 +287,7 @@ class Tester_Shell:
             self.__benchmark_list     = src["benchmark_list"] 
             self.__target_ip          = src["target_ip"]
             self.__target_port        = src["target_port"]
+            self.__setup_id           = src["setup_id"]
         except KeyError as e:
             raise Exception("Missing value for: " + str(e.args[0]))
 
@@ -320,12 +325,42 @@ class Tester_Shell:
                 break
 
     def _save_state(self):
-        pass
+        """
+            This function preserves the program's current state by transforming the 
+            class object into a linear sequence of bytes that can be saved and later loaded.
+        """
+        filename = self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
+        try:
+            with open(filename, "wb") as serialized_instance:
+                pickle.dump(self, serialized_instance)
+        except:
+            self.logging.warning("Failed to save the current state.")
 
     def _restore_state(self):
-        pass
+        """
+            This function rewinds the Symphony program to a previous state. It 
+            achieves this by reversing the process of the save_state
+            function
+            @return An object that reflects the program's state at an earlier point.
+        """
+        filename = self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
+        try:
+            with open(filename, "rb") as decirialized_instance:
+                prev_state = pickle.load(decirialized_instance)
+                return prev_state
+        except:
+            self.logging.warning("Failed to load previous state.")
 
     def _power_handler(self, action: Tester_Shell_Power_Action):
+        """
+            This function uses an abstract methodology to achieve power and reset button 
+            functionality in an experiment. 
+            The specific actions for these buttons are not defined
+            here but rather in subclasses. In order for this to work, 
+            subclasses must implement the following functions:
+                - _ovrd_unused_target_power_button
+                - _ovrd_unused_target_reset_button
+        """
         if self.__debug_disable_resets == True:
             return
 
@@ -341,8 +376,17 @@ class Tester_Shell:
         self.__target_set_voltage()
         self.__target_set_frequency()
 
-    def _remote_alive(self, boot_timeout_s: int, net_timeout_s: int):
-        conn = self.__target_connect_common(boot_timeout_s, net_timeout_s)
+    def _remote_alive(self, boot_timeout_s: int, net_timeout_s: int, ret_imediate: bool):
+        """
+            This function verifies if the machine running the experiment is 
+            connected and functional. It takes two parameters:
+
+            @param boot_timeout_s: This specifies the maximum time (in seconds) the target 
+                                   machine is allowed to take for booting up.
+            @param net_timeout_s: This defines a predefined threshold (in seconds) 
+                                  for waiting for a network response from the target machine.
+        """
+        conn = self.__target_connect_common(boot_timeout_s, net_timeout_s, ret_imediate)
         alive: bool = False
         start = self.timeit.default_timer()
 
@@ -363,16 +407,18 @@ class Tester_Shell:
         except:
             conn.close()
 
-    def _remote_execute(self, cmd, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int):
+    def _remote_execute(self, cmd, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int, ret_imediate: bool):
         alive = self._remote_alive(self.__boot_timeout_sec, net_timeout_s)
-        if (not alive):
+        if (not alive and ret_imediate == True):
+            return
+        elif (not alive):
             self._ovrd_unused_target_reset_button()
 
         execution_attempt_counter = 0
         first_error = True
 
         while True:
-            conn = self.__target_connect_common(cmd_timeout_s, net_timeout_s)
+            conn = self.__target_connect_common(cmd_timeout_s, net_timeout_s, ret_imediate)
             if (conn == None):
                 self._ovrd_unused_target_reset_button()
 
@@ -407,6 +453,48 @@ class Tester_Shell:
                 else:
                     self.logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                 execution_attempt_counter += 1
+
+    def _auto_undervolt_characterization(self, nominal_vid_hex: int, undervolt_command: str, duration_per_bench_min: int):
+        self.logging.info("Starting undervolting characterization for " + self.__current_benchmark_id)
+        
+        vid_steps = 0x0
+        timer_start = 0
+        total_duration_s = 0
+        while True:
+            # Configure the voltage.
+            command_to_exec = undervolt_command + str(nominal_vid_hex + vid_steps)
+            self._remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK,
+                                 Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 0, True)
+
+            for bench in self.__benchmark_list:
+                alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, True)
+                if not alive:
+                    self._power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
+                    self.__first_boot = True
+                    vid_steps -= 1
+                    break
+                
+                if (total_duration_s / 60 == duration_per_bench_min):
+                    break
+
+                timer_start = datetime.now()
+                # Execute the benchmark.
+                if self.__first_boot == True:
+                    self.__first_boot = False
+                    self._remote_execute(self.__benchmark_commands[bench],
+                                        Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK,
+                                        Tester_Shell_Constants.NETWORK_TIMEOUT_SEC,
+                                        0, True)
+                else:
+                    self._remote_execute(self.__benchmark_commands[bench],
+                                        self.__timeouts[bench],
+                                        Tester_Shell_Constants.NETWORK_TIMEOUT_SEC,
+                                        0, True)
+
+                total_duration_s += (datetime.now() - timer_start).seconds
+
+            vid_steps += 0x1
+            total_duration_s = 0
 
     """
         <--- Implementation dependent methods --->
