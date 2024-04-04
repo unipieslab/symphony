@@ -70,7 +70,7 @@ class Tester_Batch:
             Save a result inside a batch.
         """
         results["correct"]     = correct
-        results["dmesg_index"] = str(self.dmesg_index)
+        results["dmesg_index"] = str(dmesg_index)
         results["run_counter"] = run_counter, 
 
         self.__batch[str(self.__run)] = results
@@ -187,15 +187,14 @@ class Tester_Shell:
         logging.getLogger().addHandler(screen_handler)    
 
     def __update(self):
+        self.__current_benchmark_id = 
         self.__timeout_scale_benchmark = 2 * self.batch_per_benchmark[self.__current_benchmark_id] 
-
         self.__current_benchmark_command = self.benchmark_commands[self.__current_benchmark_id]
         self.__current_voltage_command = self.voltage_commands[self.__current_voltage_id]
         self.__boot_timeout_sec = round(self.__timeouts["BOOT"] * Tester_Shell_Constants.TIMEOUT_SCALE_BOOT)
         self.__voltage_config_timeout = round(self.__timeouts[self.__current_voltage_id] * Tester_Shell_Constants.TIMEOUT_SCALE_VOLTAGE)
         self.__benchmark_timeout = 2 * round(self.__batch_per_benchmark[self.__current_benchmark_id] * self.__timeouts[self.__current_benchmark_id])
         self.__benchmark_cold_cache_timeout = round(self.__timeouts[self.__current_benchmark_id] * Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK)
-
 
         self.__target_set_voltage()
         self.__target_set_frequency()
@@ -240,19 +239,37 @@ class Tester_Shell:
                 if conn_count_thresh <= 0:
                     self._ovrd_target_reset_button()
                     first_error = True
-                    conn_count_thresh =  int(net_timeout_s / sleep_sec_excep)
+                    conn_count_thresh = int(net_timeout_s / sleep_sec_excep)
 
     """
         <--- Methods for every implementation --->
     """
+
     def _target_set_next_voltage(self):
         """
         """
         curr_vid_index = self.__voltage_list.index(self.__current_voltage_id)
         next_vid_index = curr_vid_index + 1
+        if next_vid_index > len(self.__voltage_list):
+            return False
 
         self.__current_voltage_id = self.__voltage_list[next_vid_index]
         self.__target_set_voltage()
+
+        return True
+
+    def _target_set_next_benchmark(self):
+        """
+        """
+        curr_bid_index = self.__benchmark_list.index(self.__current_benchmark_id)
+        next_bid_index = curr_bid_index + 1
+        if next_bid_index > len(self.__benchmark_list):
+            return False
+
+        self.__current_benchmark_id = self.__benchmark_list[next_bid_index]
+        self.__update()
+
+        return True
 
     def _target_set_next_frequency(self):
         pass
@@ -396,6 +413,10 @@ class Tester_Shell:
         pass
 
     def _ovrd_detect_posible_sdcs(self):
+        """
+            'ovrd_' prefix indicates that this method must be overriden
+            by the sub class.
+        """
         pass
 
     def _ovrd_target_reset_button(self):
@@ -426,7 +447,6 @@ class Tester_Shell:
         """
         pass
 
-    
 
 def main():
     test = Tester_Shell()
