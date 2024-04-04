@@ -237,7 +237,7 @@ class Tester_Shell:
                 self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 sleep(sleep_sec_excep)
                 if conn_count_thresh <= 0:
-                    self._ovrd_target_reset_button()
+                    self._ovrd_unused_target_reset_button()
                     first_error = True
                     conn_count_thresh = int(net_timeout_s / sleep_sec_excep)
 
@@ -319,14 +319,20 @@ class Tester_Shell:
                     json.dump(batch.get_batch(), result_file_json)
                 break
 
+    def _save_state(self):
+        pass
+
+    def _restore_state(self):
+        pass
+
     def _power_handler(self, action: Tester_Shell_Power_Action):
         if self.__debug_disable_resets == True:
             return
 
         if action == Tester_Shell_Power_Action.TARGET_POWER_BTN_PRESS:
-            self._ovrd_target_power_button()
+            self._ovrd_unused_target_power_button()
         elif action == Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS:
-            self._ovrd_target_reset_button()
+            self._ovrd_unused_target_reset_button()
             alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC)
             while not alive:
                 # TODO - is this right? rethink it. What if the computer never turn on again.
@@ -360,7 +366,7 @@ class Tester_Shell:
     def _remote_execute(self, cmd, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int):
         alive = self._remote_alive(self.__boot_timeout_sec, net_timeout_s)
         if (not alive):
-            self._ovrd_target_reset_button()
+            self._ovrd_unused_target_reset_button()
 
         execution_attempt_counter = 0
         first_error = True
@@ -368,7 +374,7 @@ class Tester_Shell:
         while True:
             conn = self.__target_connect_common(cmd_timeout_s, net_timeout_s)
             if (conn == None):
-                self._ovrd_target_reset_button()
+                self._ovrd_unused_target_reset_button()
 
             try:
                 start = self.timeit.default_timer()
@@ -396,7 +402,7 @@ class Tester_Shell:
                 first_error = False
                 conn.close()
                 if  execution_attempt_counter > Tester_Shell_Constants.CMD_EXECUTION_ATTEMPT:
-                    self._ovrd_target_reset_button()
+                    self._ovrd_unused_target_reset_button()
                     first_error = True
                 else:
                     self.logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
@@ -419,14 +425,14 @@ class Tester_Shell:
         """
         pass
 
-    def _ovrd_target_reset_button(self):
+    def _ovrd_unused_target_reset_button(self):
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
         """
         pass
 
-    def _ovrd_target_power_button(self):
+    def _ovrd_unused_target_power_button(self):
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
