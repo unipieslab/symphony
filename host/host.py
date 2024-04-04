@@ -43,14 +43,49 @@ class Tester_Shell_Constants(Enum):
     CURRENT_SOC_THRESHOLD_SCALE        = 1.02
     TEMP_PMD_THRESHOLD_SCALE           = 1.10
     TIMEOUT_SCALE_BOOT                 = 1.00
+    TIMEOUT_SCALE_VOLTAGE              = 1.20
     TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.00
     RESET_AFTER_CONCECUTIVE_ERRORS     = 2.00
     EFFECTIVE_SEC_PER_BATCH            = 20.0
     BENCHMARK_VERIFICATOIN_REGEX       = r'Verification( +)=(. +.*)'
+    DMESG_TIMEOUT                      = 10.0
+    NETWORK_TIMEOUT_SEC                = 2.00
+    CMD_EXECUTION_ATTEMPT              = 1.00
 
 class Tester_Shell_Defaults(Enum):
     FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = 100
     FINISH_AFTER_TOTAL_ERRORS            = 100
+    
+class Tester_Shell_Power_Action(Enum):
+    TARGET_POWER_BTN_PRESS = 0
+    TARGET_RESET_BTN_PRESS = 1
+
+class Tester_Batch:
+    def __init__(self):
+        self.__batch: dict = {}
+        self.__run: int = 0
+
+    def append_run_results(self, results: dict, correct: bool, dmesg_index: int, run_counter: int):
+        """
+            Save a result inside a batch.
+        """
+        results["correct"]     = correct
+        results["dmesg_index"] = str(self.dmesg_index)
+        results["run_counter"] = run_counter, 
+
+        self.__batch[str(self.__run)] = results
+        self.__run += 1
+
+    def get_batch(self):
+        return self.__batch
+
+class Tester_DB:
+    
+    def __init__(self):
+        pass
+
+    def save_result_to_db(self):
+        pass
 
 class Tester_Shell:
     class CustomFormatter(logging.Formatter):
@@ -107,9 +142,11 @@ class Tester_Shell:
         self.__dmesg_diff: str = ""
 
         # Thresholds
-        self.__current_pmd_threshold_max: float = 0
-        self.__current_soc_threshold_max: float = 0
         self.__temp_pmd_threshold_max: float = 0
+
+        # Variables for maximum values.
+        self.__current_pmd_max: float = 0
+        self.__current_soc_max: float = 0
 
         # Run related
         self.__current_benchmark_id: str = ""
@@ -129,8 +166,8 @@ class Tester_Shell:
         self.__timeout_scale_benchmark: float = 0
 
         # Debug flags.
-        self.__disable_resets: bool  = False
-        self.__save_thresholds: bool = True
+        self.__debug_disable_resets: bool  = False
+        self.__debug_save_thresholds: bool = True
 
     """
         <--- Private methods --->
@@ -154,10 +191,72 @@ class Tester_Shell:
 
         self.__current_benchmark_command = self.benchmark_commands[self.__current_benchmark_id]
         self.__current_voltage_command = self.voltage_commands[self.__current_voltage_id]
+        self.__boot_timeout_sec = round(self.__timeouts["BOOT"] * Tester_Shell_Constants.TIMEOUT_SCALE_BOOT)
+        self.__voltage_config_timeout = round(self.__timeouts[self.__current_voltage_id] * Tester_Shell_Constants.TIMEOUT_SCALE_VOLTAGE)
+        self.__benchmark_timeout = 2 * round(self.__batch_per_benchmark[self.__current_benchmark_id] * self.__timeouts[self.__current_benchmark_id])
+        self.__benchmark_cold_cache_timeout = round(self.__timeouts[self.__current_benchmark_id] * Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK)
+
+
+        self.__target_set_voltage()
+        self.__target_set_frequency()
+
+    def __target_set_voltage(self):
+        # TOOD - Remote execute the command to set the voltage.
+        pass
+
+    def __target_set_frequency(self):
+        pass
+
+    def __generate_result_name(self):
+        now = self.datetime.now() # current date and time
+        result_date = now.strftime("%m_%d_%Y__%H_%M_%S")
+        result_file_name = 'results/' + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_" + result_date + ".json"
+
+        return result_file_name
+
+    def __target_connect_common(self, excp_timeout_s: int, net_timeout_s: int, ):
+        sleep_sec_excep = 0.5 
+        conn_count_thresh =  int(excp_timeout_s / sleep_sec_excep)
+        attemp_counter = 0
+        first_error = True
+
+        while True:
+            try:
+                c = rpyc.connect(self.__target_ip, self.__target_port)
+                c._config['sync_request_timeout'] = excp_timeout_s
+
+                if not c.closed:
+                    return c
+            
+                return None
+            except:
+                if first_error == True:
+                    self._ovrd_clacify_detected_error()
+                first_error = False
+                conn_count_thresh -= 1 
+                attemp_counter += 1
+                self.logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
+                sleep(sleep_sec_excep)
+                if conn_count_thresh <= 0:
+                    self._ovrd_target_reset_button()
+                    first_error = True
+                    conn_count_thresh =  int(net_timeout_s / sleep_sec_excep)
 
     """
         <--- Methods for every implementation --->
     """
+    def _target_set_next_voltage(self):
+        """
+        """
+        curr_vid_index = self.__voltage_list.index(self.__current_voltage_id)
+        next_vid_index = curr_vid_index + 1
+
+        self.__current_voltage_id = self.__voltage_list[next_vid_index]
+        self.__target_set_voltage()
+
+    def _target_set_next_frequency(self):
+        pass
+
     def _load_experiment_attr_from_dict(self, src: dict):
         try:
             self.__voltage_commands   = src["voltage_commands"] 
@@ -189,6 +288,103 @@ class Tester_Shell:
             json_content: dict = json.load(json_file)
             self._load_experiment_attr_by_dict(json_content)
 
+    def _save_results(self, batch: Tester_Batch):
+        result_name = self.__generate_result_name()
+        while True:
+            try:
+                with open(result_name, "r"):
+                    # Re generate the file name
+                    result_name = self.__generate_result_name()
+                    continue
+            except FileNotFoundError:
+                with open(result_name, "w") as result_file_json:
+                    # Save the bach on the file.
+                    json.dump(batch.get_batch(), result_file_json)
+                break
+
+    def _power_handler(self, action: Tester_Shell_Power_Action):
+        if self.__debug_disable_resets == True:
+            return
+
+        if action == Tester_Shell_Power_Action.TARGET_POWER_BTN_PRESS:
+            self._ovrd_target_power_button()
+        elif action == Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS:
+            self._ovrd_target_reset_button()
+            alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC)
+            while not alive:
+                # TODO - is this right? rethink it. What if the computer never turn on again.
+                alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC)
+
+        self.__target_set_voltage()
+        self.__target_set_frequency()
+
+    def _remote_alive(self, boot_timeout_s: int, net_timeout_s: int):
+        conn = self.__target_connect_common(boot_timeout_s, net_timeout_s)
+        alive: bool = False
+        start = self.timeit.default_timer()
+
+        self.logging.info('Checking if remote is up')
+
+        if conn == None:
+            return False
+        
+        try:
+            alive = conn.alive()
+            
+            self.logging.info('Remote is up')
+            time = str(self.math.ceil(self.timeit.default_timer() - start))
+            self.logging.info("Boot time elapsed (seconds): " + time) 
+
+            conn.close()
+            return alive
+        except:
+            conn.close()
+
+    def _remote_execute(self, cmd, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int):
+        alive = self._remote_alive(self.__boot_timeout_sec, net_timeout_s)
+        if (not alive):
+            self._ovrd_target_reset_button()
+
+        execution_attempt_counter = 0
+        first_error = True
+
+        while True:
+            conn = self.__target_connect_common(cmd_timeout_s, net_timeout_s)
+            if (conn == None):
+                self._ovrd_target_reset_button()
+
+            try:
+                start = self.timeit.default_timer()
+                obj = conn.root.execute_n_times(cmd, dmesg_index, times)
+                data = orjson.loads(obj)
+                results_lists = list(data)
+                results = []
+                # Fix the data accessing issue. Note: When the connection close, the data that has been transfered became unreachable.
+                # By typecasting the data to it's original type,we overcome this issue. It seems the type 'rpyc.core.netref.type' has this issue.
+                for results_list in results_lists:
+                    new_dicts = dict(results_list)
+                    results.append(new_dicts)
+
+                time = str(self.math.ceil(self.timeit.default_timer() - start))
+                self.logging.info("Remote_execute(" + results[0]["run_command"] + ") elapsed (seconds): " + time)
+                for check_result in results:
+                    if check_result["return_code"] != '0':
+                        self.logging.error("ERROR WHEN RUNNING: " + check_result["run_command"] + " STDERR: " + check_result["stderror"])
+                conn.close()
+                return results
+
+            except:
+                if first_error == True:
+                    self._ovrd_clacify_detected_error()
+                first_error = False
+                conn.close()
+                if  execution_attempt_counter > Tester_Shell_Constants.CMD_EXECUTION_ATTEMPT:
+                    self._ovrd_target_reset_button()
+                    first_error = True
+                else:
+                    self.logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
+                execution_attempt_counter += 1
+
     """
         <--- Implementation dependent methods --->
     """
@@ -199,19 +395,38 @@ class Tester_Shell:
         """
         pass
 
-    def _ovrd_target_reset(self):
+    def _ovrd_detect_posible_sdcs(self):
+        pass
+
+    def _ovrd_target_reset_button(self):
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
         """
         pass
 
-    def _ovrd_target_power_cycle(self):
+    def _ovrd_target_power_button(self):
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
         """
         pass
+
+    def _ovrd_target_is_application_alive(self):
+        """
+            'ovrd_' prefix indicates that this method must be overriden
+            by the sub class.
+        """
+        pass
+
+    def _ovrd_clacify_detected_error(self):
+        """
+            'ovrd_' prefix indicates that this method must be overriden
+            by the sub class.
+        """
+        pass
+
+    
 
 def main():
     test = Tester_Shell()
