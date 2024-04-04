@@ -472,7 +472,7 @@ class Tester_Shell:
                     self._power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
                     self.__first_boot = True
                     vid_steps -= 1
-                    break
+                    return vid_steps
                 
                 if (total_duration_s / 60 == duration_per_bench_min):
                     break
