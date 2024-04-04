@@ -341,13 +341,12 @@ class Tester_Shell:
             This function rewinds the Symphony program to a previous state. It 
             achieves this by reversing the process of the save_state
             function
-            @return An object that reflects the program's state at an earlier point.
         """
         filename = self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
         try:
             with open(filename, "rb") as decirialized_instance:
                 prev_state = pickle.load(decirialized_instance)
-                return prev_state
+                self.__dict__.update(prev_state.__dict__)
         except:
             self.logging.warning("Failed to load previous state.")
 
@@ -472,6 +471,7 @@ class Tester_Shell:
                     self._power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
                     self.__first_boot = True
                     vid_steps -= 1
+                    self.logging.info("Found Vsafe: " + vid_steps)
                     return vid_steps
                 
                 if (total_duration_s / 60 == duration_per_bench_min):
