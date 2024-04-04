@@ -462,7 +462,7 @@ class Tester_Shell:
         total_duration_s = 0
         while True:
             # Configure the voltage.
-            command_to_exec = undervolt_command + str(nominal_vid_hex + vid_steps)
+            command_to_exec = undervolt_command.format(VID=str(nominal_vid_hex + vid_steps))
             self._remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK,
                                  Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 0, True)
 
