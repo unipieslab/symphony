@@ -129,7 +129,6 @@ class Tester_Shell:
         self.__network_errors_per_benchmark: dict = {}
         self.__batch_per_benchmark: dict = {}
         self.__effective_time_per_batch_s: float = Tester_Shell_Constants.EFFECTIVE_SEC_PER_BATCH.value
-
         # Important lists
         self.__voltage_list: list = []
         self.__benchmark_list: list = []
@@ -200,8 +199,8 @@ class Tester_Shell:
         self.__benchmark_timeout = 2 * round(self.__batch_per_benchmark[self.__current_benchmark_id] * self.__timeouts[self.__current_benchmark_id])
         self.__benchmark_cold_cache_timeout = round(self.__timeouts[self.__current_benchmark_id] * Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value)
 
-        self.__target_set_voltage()
-        self.__target_set_frequency()
+        #self.__target_set_voltage()
+        #self.__target_set_frequency()
 
     def __target_set_voltage(self):
         self.logging.info('Configuring voltage: ' + self.__current_voltage_id)
@@ -376,7 +375,11 @@ class Tester_Shell:
             finish_after_total_effective_min: float = src["finish_after_total_effective_min"]
             finish_after_total_errors: float        = src["finish_after_total_errors"]
         except KeyError as e:
-            self.logging.warning("Missing value for: " + str(e.args[0]))
+            self.__effective_time_per_batch_s       = Tester_Shell_Constants.EFFECTIVE_SEC_PER_BATCH.value
+            self.__finish_after_total_effective_min = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES
+            self.__finish_after_total_errors        = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_ERRORS
+            logging.warning("Unable to load optional attributes. Using defaults instead.")
+            logging.warning("Missing value for: " + str(e.args[0]))
 
         if (effective_time_per_batch_s != None):
             self.__effective_time_per_batch_s = effective_time_per_batch_s
@@ -403,9 +406,11 @@ class Tester_Shell:
             self.__target_port        = src["target_port"]
             self.__setup_id           = src["setup_id"]
         except KeyError as e:
-            raise Exception("Missing value for: " + str(e.args[0]))
+            logging.error("Failed to load attributes from dictionary or json")
+            logging.error("Missing value for: " + str(e.args[0]))
+            exit(0)
         
-        self.__load_optional_attr_from_dict(dict)
+        self.__load_optional_attr_from_dict(src)
 
         # Set initial benchmark and voltage ids.
         self.__current_benchmark_id = self.__benchmark_list[0]
@@ -417,6 +422,8 @@ class Tester_Shell:
             self.__batch_per_benchmark[benchmark] = self.__effective_time_per_batch_s/self.__timeouts[benchmark]
             self.__system_errors_per_benchmark[benchmark]  = 0
             self.__network_errors_per_benchmark[benchmark] = 0
+
+        logging.info("Attributes parsed successfully from dictionary/JSON")
 
         # Update the attributes of the Tester.
         self.__update()
