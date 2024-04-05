@@ -194,8 +194,8 @@ class Tester_Shell:
         self.__benchmark_timeout = 2 * round(self.__batch_per_benchmark[self.__current_benchmark_id] * self.__timeouts[self.__current_benchmark_id])
         self.__benchmark_cold_cache_timeout = round(self.__timeouts[self.__current_benchmark_id] * Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value)
 
-        #self.__target_set_voltage()
-        #self.__target_set_frequency()
+        self.__target_set_voltage()
+        self.__target_set_frequency()
 
     def __target_set_voltage(self):
         self.logging.info('Configuring voltage: ' + self.__current_voltage_id)
@@ -242,72 +242,7 @@ class Tester_Shell:
                     first_error = True
                     conn_count_thresh = int(net_timeout_s / sleep_sec_excep)
 
-    """
-        <--- Methods for every implementation --->
-    """
-
-    def _target_set_next_voltage(self):
-        """
-        """
-        curr_vid_index = self.__voltage_list.index(self.__current_voltage_id)
-        next_vid_index = curr_vid_index + 1
-        if next_vid_index > len(self.__voltage_list):
-            return False
-
-        self.__current_voltage_id = self.__voltage_list[next_vid_index]
-        self.__target_set_voltage()
-
-        return True
-
-    def _target_set_next_benchmark(self):
-        """
-        """
-        curr_bid_index = self.__benchmark_list.index(self.__current_benchmark_id)
-        next_bid_index = curr_bid_index + 1
-        if next_bid_index > len(self.__benchmark_list):
-            return False
-
-        self.__current_benchmark_id = self.__benchmark_list[next_bid_index]
-        self.__update()
-
-        return True
-
-    def _target_set_next_frequency(self):
-        pass
-
-    def load_experiment_attr_from_dict(self, src: dict):
-        try:
-            self.__voltage_commands   = src["voltage_commands"] 
-            self.__benchmark_commands = src["benchmark_commands"] 
-            self.__timeouts           = src["timeouts"] 
-            self.__voltage_list       = src["voltage_list"]
-            self.__benchmark_list     = src["benchmark_list"] 
-            self.__target_ip          = src["target_ip"]
-            self.__target_port        = src["target_port"]
-            self.__setup_id           = src["setup_id"]
-        except KeyError as e:
-            raise Exception("Missing value for: " + str(e.args[0]))
-
-        # Set initial benchmark and voltage ids.
-        self.__current_benchmark_id = self.__benchmark_list[0]
-        self.__current_voltage_id   = self.__voltage_list[0]
-
-        # Calculate the number of runs per batch for each benchmark.
-        # And initialize the system/network errors per benchmark
-        for benchmark in self.__benchmark_list:
-            self.__batch_per_benchmark[benchmark] = Tester_Shell_Constants.EFFECTIVE_SEC_PER_BATCH.value/self.__timeouts[benchmark]
-            self.__system_errors_per_benchmark[benchmark]  = 0
-            self.__network_errors_per_benchmark[benchmark] = 0
-
-        # Update the attributes of the Tester.
-        self.__update()
-
-    def load_experiment_attr_from_json_file(self, src: str):
-        with open(src) as json_file:
-            json_content: dict = json.load(json_file)
-            self.load_experiment_attr_from_dict(json_content)
-
-    def _save_results(self, batch: Tester_Batch):
+    def __save_results(self, batch: Tester_Batch):
         result_name = self.__generate_result_name()
         while True:
             try:
@@ -321,7 +256,7 @@ class Tester_Shell:
                     json.dump(batch.get_batch(), result_file_json)
                 break
 
-    def _save_state(self):
+    def __save_state(self):
         """
             This function preserves the program's current state by transforming the 
             class object into a linear sequence of bytes that can be saved and later loaded.
@@ -333,7 +268,7 @@ class Tester_Shell:
         except:
             self.logging.warning("Failed to save the current state.")
 
-    def _restore_state(self):
+    def __restore_state(self):
         """
             This function rewinds the Symphony program to a previous state. It 
             achieves this by reversing the process of the save_state
@@ -347,32 +282,7 @@ class Tester_Shell:
         except:
             self.logging.warning("Failed to load previous state.")
 
-    def _power_handler(self, action: Tester_Shell_Power_Action):
-        """
-            This function uses an abstract methodology to achieve power and reset button 
-            functionality in an experiment. 
-            The specific actions for these buttons are not defined
-            here but rather in subclasses. In order for this to work, 
-            subclasses must implement the following functions:
-                - _ovrd_unused_target_power_button
-                - _ovrd_unused_target_reset_button
-        """
-        if self.__debug_disable_resets == True:
-            return
-
-        if action == Tester_Shell_Power_Action.TARGET_POWER_BTN_PRESS:
-            self._ovrd_unused_target_power_button()
-        elif action == Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS:
-            self._ovrd_unused_target_reset_button()
-            alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value)
-            while not alive:
-                # TODO - is this right? rethink it. What if the computer never turn on again.
-                alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value)
-
-        self.__target_set_voltage()
-        self.__target_set_frequency()
-
-    def _remote_alive(self, boot_timeout_s: int, net_timeout_s: int, ret_imediate: bool):
+    def __remote_alive(self, boot_timeout_s: int, net_timeout_s: int, ret_imediate: bool):
         """
             This function verifies if the machine running the experiment is 
             connected and functional. It takes two parameters:
@@ -403,8 +313,8 @@ class Tester_Shell:
         except:
             conn.close()
 
-    def _remote_execute(self, cmd, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int, ret_imediate: bool):
-        alive = self._remote_alive(self.__boot_timeout_sec, net_timeout_s)
+    def __remote_execute(self, cmd, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int, ret_imediate: bool):
+        alive = self.__remote_alive(self.__boot_timeout_sec, net_timeout_s)
         if (not alive and ret_imediate == True):
             return
         elif (not alive):
@@ -450,7 +360,102 @@ class Tester_Shell:
                     self.logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                 execution_attempt_counter += 1
 
-    def _auto_undervolt_characterization(self, nominal_vid_hex: int, undervolt_command: str, duration_per_bench_min: int):
+    """
+        <--- Methods for every implementation --->
+    """
+    """
+        <--- Public methods for every implemetation --->
+    """
+    def load_experiment_attr_from_dict(self, src: dict):
+        try:
+            self.__voltage_commands   = src["voltage_commands"] 
+            self.__benchmark_commands = src["benchmark_commands"] 
+            self.__timeouts           = src["timeouts"] 
+            self.__voltage_list       = src["voltage_list"]
+            self.__benchmark_list     = src["benchmark_list"] 
+            self.__target_ip          = src["target_ip"]
+            self.__target_port        = src["target_port"]
+            self.__setup_id           = src["setup_id"]
+        except KeyError as e:
+            raise Exception("Missing value for: " + str(e.args[0]))
+
+        # Set initial benchmark and voltage ids.
+        self.__current_benchmark_id = self.__benchmark_list[0]
+        self.__current_voltage_id   = self.__voltage_list[0]
+
+        # Calculate the number of runs per batch for each benchmark.
+        # And initialize the system/network errors per benchmark
+        for benchmark in self.__benchmark_list:
+            self.__batch_per_benchmark[benchmark] = Tester_Shell_Constants.EFFECTIVE_SEC_PER_BATCH.value/self.__timeouts[benchmark]
+            self.__system_errors_per_benchmark[benchmark]  = 0
+            self.__network_errors_per_benchmark[benchmark] = 0
+
+        # Update the attributes of the Tester.
+        self.__update()
+
+    def load_experiment_attr_from_json_file(self, src: str):
+        with open(src) as json_file:
+            json_content: dict = json.load(json_file)
+            self.load_experiment_attr_from_dict(json_content)
+
+    def target_set_next_voltage(self):
+        """
+        """
+        curr_vid_index = self.__voltage_list.index(self.__current_voltage_id)
+        next_vid_index = curr_vid_index + 1
+        if next_vid_index > len(self.__voltage_list):
+            return False
+
+        self.__current_voltage_id = self.__voltage_list[next_vid_index]
+        self.__target_set_voltage()
+
+        return True
+
+    def target_set_next_benchmark(self):
+        """
+        """
+        curr_bid_index = self.__benchmark_list.index(self.__current_benchmark_id)
+        next_bid_index = curr_bid_index + 1
+        if next_bid_index > len(self.__benchmark_list):
+            return False
+
+        self.__current_benchmark_id = self.__benchmark_list[next_bid_index]
+        self.__update()
+
+        return True
+    
+    def target_set_next_frequency(self):
+        pass
+
+    def toggle_resets(self):
+        self.__debug_disable_resets = not self.__debug_disable_resets
+
+    def power_handler(self, action: Tester_Shell_Power_Action):
+        """
+            This function uses an abstract methodology to achieve power and reset button 
+            functionality in an experiment. 
+            The specific actions for these buttons are not defined
+            here but rather in subclasses. In order for this to work, 
+            subclasses must implement the following functions:
+                - _ovrd_unused_target_power_button
+                - _ovrd_unused_target_reset_button
+        """
+        if self.__debug_disable_resets == True:
+            return
+
+        if action == Tester_Shell_Power_Action.TARGET_POWER_BTN_PRESS:
+            self._ovrd_unused_target_power_button()
+        elif action == Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS:
+            self._ovrd_unused_target_reset_button()
+            alive = self.__remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value)
+            while not alive:
+                # TODO - is this right? rethink it. What if the computer never turn on again.
+                alive = self.__remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value)
+
+        self.__target_set_voltage()
+        self.__target_set_frequency()
+
+    def auto_undervolt_characterization(self, nominal_vid_hex: int, undervolt_command: str, duration_per_bench_min: int):
         self.logging.info("Starting undervolting characterization for " + self.__current_benchmark_id)
         
         vid_steps = 0x0
@@ -463,9 +468,9 @@ class Tester_Shell:
                                  Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 0, True)
 
             for bench in self.__benchmark_list:
-                alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
+                alive = self.__remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
                 if not alive:
-                    self._power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS.value)
+                    self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS.value)
                     self.__first_boot = True
                     vid_steps -= 1
                     self.logging.info("Found Vsafe: " + vid_steps)
@@ -478,12 +483,12 @@ class Tester_Shell:
                 # Execute the benchmark.
                 if self.__first_boot == True:
                     self.__first_boot = False
-                    self._remote_execute(self.__benchmark_commands[bench],
+                    self.__remote_execute(self.__benchmark_commands[bench],
                                         self.__benchmark_cold_cache_timeout,
                                         Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
                                         0, True)
                 else:
-                    self._remote_execute(self.__benchmark_commands[bench],
+                    self.__remote_execute(self.__benchmark_commands[bench],
                                         self.__timeouts[bench],
                                         Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
                                         0, True)
@@ -493,6 +498,9 @@ class Tester_Shell:
             vid_steps += 0x1
             total_duration_s = 0
 
+    """
+        <--- Protected methods for every implementation --->
+    """
     """
         <--- Implementation dependent methods --->
     """
