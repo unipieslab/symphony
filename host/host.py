@@ -128,6 +128,7 @@ class Tester_Shell:
         self.__system_errors_per_benchmark: dict = {} 
         self.__network_errors_per_benchmark: dict = {}
         self.__batch_per_benchmark: dict = {}
+        self.__effective_time_per_batch_s: float = Tester_Shell_Constants.EFFECTIVE_SEC_PER_BATCH.value
 
         # Important lists
         self.__voltage_list: list = []
@@ -152,23 +153,28 @@ class Tester_Shell:
         self.__current_benchmark_id: str = ""
         self.__current_voltage_id: str = ""
         self.__setup_id: str = ""
-        self.__current_benchmark_command: str = ""
-        self.__current_voltage_command: str = ""
 
-        self.__finish_after_total_effective_minutes: float = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES.value
+        self.__finish_after_total_effective_min: float = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES.value
         self.__finish_after_total_errors: float = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_ERRORS.value
 
-        self.__effective_total_elapsed_minutes: float = 0
-        self.__experiment_total_elapsed_sec: float = 0.1
+        self.__effective_total_elapsed_min: float = 0
+        self.__experiment_total_elapsed_s: float = 0.1
 
         self.__experiment_start_time: time = time()
 
         # Scales
         self.__timeout_scale_benchmark: float = 0
+        self.__benchmark_cold_cache_timeout: float = 0
+
+        # timeouts
+        self.__boot_timeout_sec: float = 0
+        self.__voltage_config_timeout: float = 0
+        self.__benchmark_timeout: float = 0
 
         # Debug flags.
         self.__debug_disable_resets: bool  = False
         self.__debug_save_thresholds: bool = True
+
 
     """
         <--- Private methods --->
@@ -199,8 +205,8 @@ class Tester_Shell:
 
     def __target_set_voltage(self):
         self.logging.info('Configuring voltage: ' + self.__current_voltage_id)
-        self._remote_execute(self.__timeouts[self.__current_voltage_id],
-                             Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 1, 1, False)[0]
+        self.__remote_execute(self.__voltage_commands[self.__current_voltage_id], self.__voltage_config_timeout,
+                              Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 1, 1, False)[0]
 
     def __target_set_frequency(self):
         pass
@@ -360,12 +366,32 @@ class Tester_Shell:
                     self.logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                 execution_attempt_counter += 1
 
+    def __load_optional_attr_from_dict(self, src: dict):
+        # (OPTIONAL) fields.
+        effective_time_per_batch_s: float       = None
+        finish_after_total_effective_min: float = None
+        finish_after_total_errors: float        = None
+        try:
+            effective_time_per_batch_s: float       = src["effective_time_per_batch_s"]
+            finish_after_total_effective_min: float = src["finish_after_total_effective_min"]
+            finish_after_total_errors: float        = src["finish_after_total_errors"]
+        except KeyError as e:
+            self.logging.warning("Missing value for: " + str(e.args[0]))
+
+        if (effective_time_per_batch_s != None):
+            self.__effective_time_per_batch_s = effective_time_per_batch_s
+        if (finish_after_total_effective_min != None):
+            self.__finish_after_total_effective_min = finish_after_total_effective_min
+        if (finish_after_total_errors != None):
+            self.__finish_after_total_errors = finish_after_total_errors
+
     """
         <--- Methods for every implementation --->
     """
     """
         <--- Public methods for every implemetation --->
     """
+
     def load_experiment_attr_from_dict(self, src: dict):
         try:
             self.__voltage_commands   = src["voltage_commands"] 
@@ -378,6 +404,8 @@ class Tester_Shell:
             self.__setup_id           = src["setup_id"]
         except KeyError as e:
             raise Exception("Missing value for: " + str(e.args[0]))
+        
+        self.__load_optional_attr_from_dict(dict)
 
         # Set initial benchmark and voltage ids.
         self.__current_benchmark_id = self.__benchmark_list[0]
@@ -386,7 +414,7 @@ class Tester_Shell:
         # Calculate the number of runs per batch for each benchmark.
         # And initialize the system/network errors per benchmark
         for benchmark in self.__benchmark_list:
-            self.__batch_per_benchmark[benchmark] = Tester_Shell_Constants.EFFECTIVE_SEC_PER_BATCH.value/self.__timeouts[benchmark]
+            self.__batch_per_benchmark[benchmark] = self.__effective_time_per_batch_s/self.__timeouts[benchmark]
             self.__system_errors_per_benchmark[benchmark]  = 0
             self.__network_errors_per_benchmark[benchmark] = 0
 
