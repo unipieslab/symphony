@@ -1,7 +1,6 @@
 import sys # for exit
 import orjson
 import subprocess
-import os
 import statistics
 import traceback
 import rpyc
@@ -156,8 +155,8 @@ class Tester_Shell:
         self.__current_benchmark_command: str = ""
         self.__current_voltage_command: str = ""
 
-        self.__finish_after_total_effective_minutes: float = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES
-        self.__finish_after_total_errors: float = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_ERRORS
+        self.__finish_after_total_effective_minutes: float = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES.value
+        self.__finish_after_total_errors: float = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_ERRORS.value
 
         self.__effective_total_elapsed_minutes: float = 0
         self.__experiment_total_elapsed_sec: float = 0.1
@@ -189,26 +188,24 @@ class Tester_Shell:
         logging.getLogger().addHandler(screen_handler)    
 
     def __update(self):
-        self.__timeout_scale_benchmark = 2 * self.batch_per_benchmark[self.__current_benchmark_id] 
-        self.__current_benchmark_command = self.benchmark_commands[self.__current_benchmark_id]
-        self.__current_voltage_command = self.voltage_commands[self.__current_voltage_id]
-        self.__boot_timeout_sec = round(self.__timeouts["BOOT"] * Tester_Shell_Constants.TIMEOUT_SCALE_BOOT)
-        self.__voltage_config_timeout = round(self.__timeouts[self.__current_voltage_id] * Tester_Shell_Constants.TIMEOUT_SCALE_VOLTAGE)
+        self.__timeout_scale_benchmark = 2 * self.__batch_per_benchmark[self.__current_benchmark_id] 
+        self.__boot_timeout_sec = round(self.__timeouts["BOOT"] * Tester_Shell_Constants.TIMEOUT_SCALE_BOOT.value)
+        self.__voltage_config_timeout = round(self.__timeouts[self.__current_voltage_id] * Tester_Shell_Constants.TIMEOUT_SCALE_VOLTAGE.value)
         self.__benchmark_timeout = 2 * round(self.__batch_per_benchmark[self.__current_benchmark_id] * self.__timeouts[self.__current_benchmark_id])
-        self.__benchmark_cold_cache_timeout = round(self.__timeouts[self.__current_benchmark_id] * Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK)
+        self.__benchmark_cold_cache_timeout = round(self.__timeouts[self.__current_benchmark_id] * Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value)
 
-        self.__target_set_voltage()
-        self.__target_set_frequency()
+        #self.__target_set_voltage()
+        #self.__target_set_frequency()
 
     def __target_set_voltage(self):
         self.logging.info('Configuring voltage: ' + self.__current_voltage_id)
         self._remote_execute(self.__timeouts[self.__current_voltage_id],
-                             Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 1, 1, False)[0]
+                             Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 1, 1, False)[0]
 
     def __target_set_frequency(self):
         pass
 
-    def __generate_result_name(self, ):
+    def __generate_result_name(self):
         now = datetime.now() # current date and time
         result_date = now.strftime("%m_%d_%Y__%H_%M_%S")
         result_file_name = "results/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_" + result_date + ".json"
@@ -278,7 +275,7 @@ class Tester_Shell:
     def _target_set_next_frequency(self):
         pass
 
-    def _load_experiment_attr_from_dict(self, src: dict):
+    def load_experiment_attr_from_dict(self, src: dict):
         try:
             self.__voltage_commands   = src["voltage_commands"] 
             self.__benchmark_commands = src["benchmark_commands"] 
@@ -298,17 +295,17 @@ class Tester_Shell:
         # Calculate the number of runs per batch for each benchmark.
         # And initialize the system/network errors per benchmark
         for benchmark in self.__benchmark_list:
-            self.__batch_per_benchmark[benchmark] = Tester_Shell_Constants.EFFECTIVE_SEC_PER_BATCH/self.__timeouts[benchmark]
+            self.__batch_per_benchmark[benchmark] = Tester_Shell_Constants.EFFECTIVE_SEC_PER_BATCH.value/self.__timeouts[benchmark]
             self.__system_errors_per_benchmark[benchmark]  = 0
             self.__network_errors_per_benchmark[benchmark] = 0
 
         # Update the attributes of the Tester.
         self.__update()
 
-    def _load_experiment_attr_from_json_file(self, src: str):
+    def load_experiment_attr_from_json_file(self, src: str):
         with open(src) as json_file:
             json_content: dict = json.load(json_file)
-            self._load_experiment_attr_by_dict(json_content)
+            self.load_experiment_attr_from_dict(json_content)
 
     def _save_results(self, batch: Tester_Batch):
         result_name = self.__generate_result_name()
@@ -367,10 +364,10 @@ class Tester_Shell:
             self._ovrd_unused_target_power_button()
         elif action == Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS:
             self._ovrd_unused_target_reset_button()
-            alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC)
+            alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value)
             while not alive:
                 # TODO - is this right? rethink it. What if the computer never turn on again.
-                alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC)
+                alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value)
 
         self.__target_set_voltage()
         self.__target_set_frequency()
@@ -387,7 +384,7 @@ class Tester_Shell:
         """
         conn = self.__target_connect_common(boot_timeout_s, net_timeout_s, ret_imediate)
         alive: bool = False
-        start = self.timeit.default_timer()
+        start = timeit.default_timer()
 
         self.logging.info('Checking if remote is up')
 
@@ -398,7 +395,7 @@ class Tester_Shell:
             alive = conn.alive()
             
             self.logging.info('Remote is up')
-            time = str(self.math.ceil(self.timeit.default_timer() - start))
+            time = str(self.math.ceil(timeit.default_timer() - start))
             self.logging.info("Boot time elapsed (seconds): " + time) 
 
             conn.close()
@@ -422,7 +419,7 @@ class Tester_Shell:
                 self._ovrd_unused_target_reset_button()
 
             try:
-                start = self.timeit.default_timer()
+                start = timeit.default_timer()
                 obj = conn.root.execute_n_times(cmd, dmesg_index, times)
                 data = orjson.loads(obj)
                 results_lists = list(data)
@@ -433,7 +430,7 @@ class Tester_Shell:
                     new_dicts = dict(results_list)
                     results.append(new_dicts)
 
-                time = str(self.math.ceil(self.timeit.default_timer() - start))
+                time = str(self.math.ceil(timeit.default_timer() - start))
                 self.logging.info("Remote_execute(" + results[0]["run_command"] + ") elapsed (seconds): " + time)
                 for check_result in results:
                     if check_result["return_code"] != '0':
@@ -446,7 +443,7 @@ class Tester_Shell:
                     self._ovrd_clacify_detected_error()
                 first_error = False
                 conn.close()
-                if  execution_attempt_counter > Tester_Shell_Constants.CMD_EXECUTION_ATTEMPT:
+                if  execution_attempt_counter > Tester_Shell_Constants.CMD_EXECUTION_ATTEMPT.value:
                     self._ovrd_unused_target_reset_button()
                     first_error = True
                 else:
@@ -462,13 +459,13 @@ class Tester_Shell:
         while True:
             # Configure the voltage.
             command_to_exec = undervolt_command.format(VID=str(nominal_vid_hex + vid_steps))
-            self._remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK,
+            self._remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value,
                                  Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 0, True)
 
             for bench in self.__benchmark_list:
-                alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, True)
+                alive = self._remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
                 if not alive:
-                    self._power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
+                    self._power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS.value)
                     self.__first_boot = True
                     vid_steps -= 1
                     self.logging.info("Found Vsafe: " + vid_steps)
@@ -482,13 +479,13 @@ class Tester_Shell:
                 if self.__first_boot == True:
                     self.__first_boot = False
                     self._remote_execute(self.__benchmark_commands[bench],
-                                        Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK,
-                                        Tester_Shell_Constants.NETWORK_TIMEOUT_SEC,
+                                        self.__benchmark_cold_cache_timeout,
+                                        Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
                                         0, True)
                 else:
                     self._remote_execute(self.__benchmark_commands[bench],
                                         self.__timeouts[bench],
-                                        Tester_Shell_Constants.NETWORK_TIMEOUT_SEC,
+                                        Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
                                         0, True)
 
                 total_duration_s += (datetime.now() - timer_start).seconds
@@ -544,7 +541,7 @@ class Tester_Shell:
 
 def main():
     test = Tester_Shell()
-
+    test.load_experiment_attr_from_json_file("test.json")
 
 if __name__ == '__main__':
     main()
