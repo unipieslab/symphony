@@ -18,6 +18,9 @@ import requests
 from enum import Enum
 import pickle
 
+import rpyc.core
+import rpyc.core.stream
+
 #from GPIOClient import GPIOClient
 
 
@@ -174,7 +177,6 @@ class Tester_Shell:
         self.__debug_disable_resets: bool  = False
         self.__debug_save_thresholds: bool = True
 
-
     """
         <--- Private methods --->
     """
@@ -210,22 +212,22 @@ class Tester_Shell:
     def __target_set_frequency(self):
         pass
 
-    def __generate_result_name(self):
+    def __generate_result_name(self) -> str:
         now = datetime.now() # current date and time
         result_date = now.strftime("%m_%d_%Y__%H_%M_%S")
         result_file_name = "results/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_" + result_date + ".json"
 
         return result_file_name
 
-    def __target_connect_common(self, excp_timeout_s: int, net_timeout_s: int, ret_imediate: bool):
-        sleep_sec_excep = 0.5 
-        conn_count_thresh =  int(excp_timeout_s / sleep_sec_excep)
-        attemp_counter = 0
-        first_error = True
+    def __target_connect_common(self, excp_timeout_s: int, net_timeout_s: int, ret_imediate: bool) -> rpyc.core.stream.SocketStream:
+        sleep_sec_excep: float = 0.5 
+        conn_count_thresh: int =  int(excp_timeout_s / sleep_sec_excep)
+        attemp_counter: int = 0
+        first_error: bool = True
 
         while True:
             try:
-                c = rpyc.connect(self.__target_ip, self.__target_port)
+                c: rpyc.core.stream.SocketStream = rpyc.connect(self.__target_ip, self.__target_port)
                 c._config['sync_request_timeout'] = excp_timeout_s
 
                 if not c.closed:
@@ -235,7 +237,7 @@ class Tester_Shell:
                 return None
             except:
                 if first_error == True:
-                    self._ovrd_clacify_detected_error()
+                    self.__clacify_detected_error()
                 first_error = False
                 conn_count_thresh -= 1 
                 attemp_counter += 1
@@ -244,12 +246,12 @@ class Tester_Shell:
                 if conn_count_thresh <= 0:
                     if (ret_imediate == True):
                         return
-                    self._ovrd_unused_target_reset_button()
+                    self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
                     first_error = True
                     conn_count_thresh = int(net_timeout_s / sleep_sec_excep)
 
     def __save_results(self, batch: Tester_Batch):
-        result_name = self.__generate_result_name()
+        result_name: str = self.__generate_result_name()
         while True:
             try:
                 with open(result_name, "r"):
@@ -267,7 +269,7 @@ class Tester_Shell:
             This function preserves the program's current state by transforming the 
             class object into a linear sequence of bytes that can be saved and later loaded.
         """
-        filename = self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
+        filename: str = self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
         try:
             with open(filename, "wb") as serialized_instance:
                 pickle.dump(self, serialized_instance)
@@ -280,7 +282,7 @@ class Tester_Shell:
             achieves this by reversing the process of the save_state
             function
         """
-        filename = self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
+        filename: str = self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
         try:
             with open(filename, "rb") as decirialized_instance:
                 prev_state = pickle.load(decirialized_instance)
@@ -288,7 +290,7 @@ class Tester_Shell:
         except:
             self.logging.warning("Failed to load previous state.")
 
-    def __remote_alive(self, boot_timeout_s: int, net_timeout_s: int, ret_imediate: bool):
+    def __remote_alive(self, boot_timeout_s: int, net_timeout_s: int, ret_imediate: bool) -> bool:
         """
             This function verifies if the machine running the experiment is 
             connected and functional. It takes two parameters:
@@ -313,12 +315,24 @@ class Tester_Shell:
         except:
             conn.close()
 
-    def __remote_execute(self, cmd, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int, ret_imediate: bool):
+    def __decode_target_response(self, response) -> list:
+        # Fix the data accessing issue. Note: When the connection close, the data that has been transfered became unreachable.
+        # By typecasting the data to it's original type,we overcome this issue. It seems the type 'rpyc.core.netref.type' has this issue.
+        data = orjson.loads(response)
+        conv_to_list: list = list(data)
+        results: list = []
+        for result in conv_to_list:
+            tmp_dict = dict(result)
+            results.append(tmp_dict)
+
+        return results
+
+    def __remote_execute(self, cmd: str, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int, ret_imediate: bool) -> list:
         alive = self.__remote_alive(self.__boot_timeout_sec, net_timeout_s, ret_imediate)
         if (not alive and ret_imediate == True):
             return
         elif (not alive):
-            self._ovrd_unused_target_reset_button()
+            self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
 
         execution_attempt_counter = 0
         first_error = True
@@ -326,19 +340,12 @@ class Tester_Shell:
         while True:
             conn = self.__target_connect_common(cmd_timeout_s, net_timeout_s, ret_imediate)
             if (conn == None):
-                self._ovrd_unused_target_reset_button()
+                self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
 
             try:
                 start = timeit.default_timer()
-                obj = conn.root.execute_n_times(cmd, dmesg_index, times)
-                data = orjson.loads(obj)
-                results_lists = list(data)
-                results = []
-                # Fix the data accessing issue. Note: When the connection close, the data that has been transfered became unreachable.
-                # By typecasting the data to it's original type,we overcome this issue. It seems the type 'rpyc.core.netref.type' has this issue.
-                for results_list in results_lists:
-                    new_dicts = dict(results_list)
-                    results.append(new_dicts)
+                response = conn.root.execute_n_times(cmd, dmesg_index, times)
+                results: list = self.__decode_target_response(response)
 
                 time = str(math.ceil(timeit.default_timer() - start))
                 logging.info("Remote_execute(" + results[0]["run_command"] + ") elapsed (seconds): " + time)
@@ -350,15 +357,23 @@ class Tester_Shell:
 
             except Exception as e:
                 if first_error == True:
-                    self._ovrd_clacify_detected_error()
+                    self.__dete()
                 first_error = False
                 conn.close()
-                if  execution_attempt_counter > Tester_Shell_Constants.CMD_EXECUTION_ATTEMPT.value:
-                    self._ovrd_unused_target_reset_button()
+                if execution_attempt_counter > Tester_Shell_Constants.CMD_EXECUTION_ATTEMPT.value:
+                    self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
                     first_error = True
                 else:
                     logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                 execution_attempt_counter += 1
+
+    def __clacify_detected_error(self):
+        if (self._ovrd_callback_target_is_network() == True):
+            self.__network_errors_per_benchmark[self.__current_benchmark_id] += 1
+            logging.warning("Network error detected.")
+        else:
+            self.__system_errors_per_benchmark[self.__current_benchmark_id] += 1
+            logging.warning("System error detected.")
 
     def __load_optional_attr_from_dict(self, src: dict):
         # (OPTIONAL) fields.
@@ -400,7 +415,7 @@ class Tester_Shell:
             logging.error("Ensure the incomplete value is present in the relevant lists and dictionaries.")
             exit(0)        
 
-    def __target_set_next_voltage(self):
+    def __target_set_next_voltage(self) -> bool:
         """
         """
         curr_vid_index = self.__voltage_list.index(self.__current_voltage_id)
@@ -414,7 +429,7 @@ class Tester_Shell:
 
         return True
 
-    def __target_set_next_benchmark(self):
+    def __target_set_next_benchmark(self) -> bool:
         """
         """
         curr_bid_index = self.__benchmark_list.index(self.__current_benchmark_id)
@@ -427,6 +442,64 @@ class Tester_Shell:
         self.__update()
 
         return True
+    
+    def __experiment_execute_benchmark(self) -> list:
+        results: list = []
+        last_executed_bench: int = 0
+
+        if self.__first_boot == True:
+            self.__first_boot = False
+            results = self.remote_execute(self.__benchmark_commands[self.__current_benchmark_id], 
+                                          self.__benchmark_cold_cache_timeout, 
+                                          Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 1, 1)
+            
+            self.__dmesg_diff = results[0]["dmesg_diff"]
+        else:
+            self.__dmesg_index += len(self.__dmesg_diff)
+            results = self.remote_execute(self.__benchmark_commands[self.__current_benchmark_id], 
+                                          self.__benchmark_timeout, 
+                                          Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 
+                                          self.__dmesg_index, 
+                                          self.__batch_per_benchmark[self.__current_benchmark_id])
+            
+            last_executed_bench = self.batch_per_benchmark[self.__current_benchmark_id] - 1
+            self.__dmesg_diff = results[last_executed_bench]["dmesg_diff"]
+
+        return results
+
+    def __experiment_execute_actions_for_each_result(self, src: list) -> tuple[int, Tester_Batch]:
+        curr_result_correct: bool = True
+        total_time_passed: float = 0.0
+        total_consecutive_errors: int = 0
+
+        batch: Tester_Batch = Tester_Batch()
+
+        for result in src:
+            self.__run_counter += 1
+
+            total_time_passed += (float(result["duration_ms"])/1000)/60  
+            curr_result_correct = self._ovrd_callback_is_result_correct(result)
+
+            if (curr_result_correct == False):
+                logging.error("Result SDC detected")
+                logging.error("Error_consecutive: " + str(total_consecutive_errors))
+
+                total_consecutive_errors += 1
+                self.__sdc_counter += 1
+                self.__total_errors += 1
+            else:
+                total_consecutive_errors = 0
+            
+            batch.append_run_results(result, curr_result_correct, self.__dmesg_index, self.__run_counter)
+
+            log_str = "Run: " + str(self.__run_counter) + " | Correct: " + str(curr_result_correct) + " | Effect-run-elapsed(ms): " + result["duration_ms"] + " | timestamp: " \
+                    + result["timestamp"]
+            
+            logging.info(log_str)
+            # TODO - parse monitor data here, using healthlog.
+
+        self.__effective_total_elapsed_min += total_time_passed
+        return total_consecutive_errors, batch
 
     """
         <--- Methods for every implementation --->
@@ -482,7 +555,8 @@ class Tester_Shell:
         benchmarks_has_next = True
         voltage_has_next    = True
         while voltage_has_next:
-            # TODO - start experiment for the current benchmark.
+            #self.experiment_start()
+
             benchmarks_has_next = self.__target_set_next_benchmark()
             if not benchmarks_has_next:
                 # Reset benchmarks
@@ -491,11 +565,12 @@ class Tester_Shell:
                 self.__current_benchmark_id = self.__benchmark_list[0]
                 voltage_has_next = self.__target_set_next_voltage()
 
-    def target_set_next_frequency(self):
-        pass
-
     def toggle_resets(self):
         self.__debug_disable_resets = not self.__debug_disable_resets
+        if self.__debug_disable_resets == True:
+            logging.warning("Disabling resets")
+        else:
+            logging.warning("Enable resets")
 
     def power_handler(self, action: Tester_Shell_Power_Action):
         """
@@ -504,26 +579,28 @@ class Tester_Shell:
             The specific actions for these buttons are not defined
             here but rather in subclasses. In order for this to work, 
             subclasses must implement the following functions:
-                - _ovrd_unused_target_power_button
-                - _ovrd_unused_target_reset_button
+                - _ovrd_callback_target_power_button (Optional)
+                - _ovrd_callback_target_reset_button
         """
         if self.__debug_disable_resets == True:
             return
 
         if action == Tester_Shell_Power_Action.TARGET_POWER_BTN_PRESS:
-            self._ovrd_unused_target_power_button()
+            self._ovrd_callback_target_power_button()
         elif action == Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS:
             alive = False
             while not alive:
-                self._ovrd_unused_target_reset_button()
+                self.__reset_counter += 1
+                logging.warning("Remote is down..trying to reset")
+                self._ovrd_callback_target_reset_button()
                 sleep(self.__boot_timeout_sec)
                 alive = self.__remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
-            self.logging.info("Booted")
+            logging.info("Booted")
 
         self.__target_set_voltage()
         self.__target_set_frequency()
 
-    def auto_undervolt_characterization(self, nominal_vid_hex: int, undervolt_command: str, duration_per_bench_min: int):
+    def auto_undervolt_characterization(self, nominal_vid_hex: int, undervolt_command: str, duration_per_bench_min: int) -> int:
         self.logging.info("Starting undervolting characterization for " + self.__current_benchmark_id)
         
         vid_steps = 0x0
@@ -566,54 +643,108 @@ class Tester_Shell:
             vid_steps += 0x1
             total_duration_s = 0
 
+    def experiment_start(self):
+        self.logging.info('Starting... Benchmark: ' + self.__current_benchmark_id)
+
+        error_consecutive: int = 0
+        curr_batch: Tester_Batch = Tester_Batch()
+        self.__restore_state()
+
+        try:
+            while True:
+                results_as_list: list = self.__experiment_execute_benchmark()
+                error_consecutive, curr_batch = self.__experiment_execute_actions_for_each_result(results_as_list)
+
+                self.__save_results(curr_batch)
+
+                effective_elapsed_min = str("{:.2f}".format(round(self.__effective_total_elapsed_min, 2)))
+                self.__experiment_total_elapsed_s = (self.time() - self.__experiment_start_time)
+
+                log_str = "Resets: " + str(self.__reset_counter) + " | PowerCycles: " + str(self.__power_cycle_counter) \
+                          + " | Effective-elapsed(min): " + str(effective_elapsed_min)
+                logging.info(log_str)
+
+                log_errors_str = "Total Errors | Network: "+ str(self.__network_errors_per_benchmark[self.__current_benchmark_id]) + \
+                                 " | System crash: "+ str(self.__system_errors_per_benchmark[self.__current_benchmark_id]) + \
+                                 " | SDCs: "+ str(self.__sdc_counter)
+                logging.info(log_errors_str)
+
+                network_errors_per_min = self.__network_errors_per_benchmark[self.__current_benchmark_id] / self.effective_total_elapsed_minutes
+                system_errors_per_min = self.__system_errors_per_benchmark[self.__current_benchmark_id] / self.effective_total_elapsed_minutes
+                total_errors_per_min = self.__total_errors / self.__experiment_total_elapsed_s
+
+                logging.info(self.__current_benchmark_id + "| Network errors/Min: "+ str(network_errors_per_min)  + \
+                             " | App crash/Min: "+ str(system_errors_per_min) + \
+                             " | Total errors/Min: "+ str(total_errors_per_min))
+
+                # TODO - additional logs
+
+                experiment_elapsed_sec_str = str(self.timedelta(seconds=self.__experiment_total_elapsed_s))
+                logging.info("Total elapsed: "+ experiment_elapsed_sec_str + \
+                             " (BENCH_ID = " + self.__current_benchmark_id + " | VOLTAGE_ID = " + self.__current_voltage_id + ")")
+
+                if error_consecutive == Tester_Shell_Constants.RESET_AFTER_CONCECUTIVE_ERRORS:
+                    logging.warning("Reseting DUT. Error_consecutive: " + str(error_consecutive))
+                    self.__total_errors += 1
+                    self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
+
+                self.__save_state()
+
+                if ((self.effective_total_elapsed_minutes > Tester_Shell_Defaults.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES) \
+                    or (self.__total_errors > Tester_Shell_Defaults.FINISH_AFTER_TOTAL_ERRORS)):
+                    break
+        except Exception:
+            self.logging.warning(self.traceback.format_exc())
+            pass
+
+
     """
         <--- Protected methods for every implementation --->
     """
     """
         <--- Implementation dependent methods --->
     """
-    def _ovrd_detect_cache_upsets(self):
+    def _ovrd_callback_is_result_correct(self, result) -> bool:
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
         """
         pass
 
-    def _ovrd_detect_posible_sdcs(self):
+    def _ovrd_callback_detect_cache_upsets(self):
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
         """
         pass
 
-    def _ovrd_unused_target_reset_button(self):
+    def _ovrd_callback_detect_posible_sdcs(self):
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
         """
         pass
 
-    def _ovrd_unused_target_power_button(self):
+    def _ovrd_callback_target_reset_button(self):
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
         """
         pass
 
-    def _ovrd_target_is_application_alive(self):
+    def _ovrd_callback_target_power_button(self):
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
         """
         pass
 
-    def _ovrd_clacify_detected_error(self):
+    def _ovrd_callback_target_is_network(self) -> bool:
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
         """
-        pass
-
+        return True
 
 def main():
     test = Tester_Shell()
