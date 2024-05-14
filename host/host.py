@@ -1,7 +1,5 @@
 import sys # for exit
 import orjson
-import subprocess
-import statistics
 import traceback
 import rpyc
 from time import sleep
@@ -30,10 +28,8 @@ class Tester_Shell_Constants(Enum):
     """
         PMD_THRESHOLD: This value determines the maximum acceptable power consumption for the PMD.
         SOC_THRESHOLD: This value determines the maximum acceptable power consumption for the SoC.
-        TEMP_PMD_THRESHOLD: This value determines the maximum acceptable temperature of the experiment system.
         CURRENT_PMD_THRESHOLD_SCALE: This value determines the factor by which to increase the power consumption threshold of PMD.
         CURRENT_SOC_THRESHOLD_SCALE: This value determines the factor by which to increase the power consumption threshold for the System-on-Chip (SoC).
-        TEMP_PMD_THRESHOLD_SCALE: This value determines the factor for increasing the temperature threshold.
         TIMEOUT_SCALE_BOOT: This value determines the factor by which to increase the boot time threshold.
         RESET_AFTER_CONCECUTIVE_ERRORS: This value determines the number of consecutive errors that must occur before the experiment system automatically resets.
         EFFECTIVE_SEC_PER_BATCH: This value determines the allocated time (in seconds) for each batch of benchmarks to run.
@@ -41,10 +37,8 @@ class Tester_Shell_Constants(Enum):
     """
     PMD_THRESHOLD                      = 95.0
     SOC_THRESHOLD                      = 95.0
-    TEMP_PMD_THRESHOLD                 = 90.0
     CURRENT_PMD_THRESHOLD_SCALE        = 1.02
     CURRENT_SOC_THRESHOLD_SCALE        = 1.02
-    TEMP_PMD_THRESHOLD_SCALE           = 1.10
     TIMEOUT_SCALE_BOOT                 = 1.00
     TIMEOUT_SCALE_VOLTAGE              = 1.20
     TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.00
@@ -144,13 +138,6 @@ class Tester_Shell:
         self.__dmesg_index: int = 0
         self.__dmesg_diff: str = ""
 
-        # Thresholds
-        self.__temp_pmd_threshold_max: float = 0
-
-        # Variables for maximum values.
-        self.__current_pmd_max: float = 0
-        self.__current_soc_max: float = 0
-
         # Run related
         self.__current_benchmark_id: str = ""
         self.__current_voltage_id: str = ""
@@ -206,8 +193,15 @@ class Tester_Shell:
 
     def __target_set_voltage(self):
         logging.warning('Configuring voltage: ' + self.__current_voltage_id)
-        self.__remote_execute(self.__voltage_commands[self.__current_voltage_id], self.__voltage_config_timeout,
-                              Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 1, 1, False)[0]
+        ret_code: int = self.__remote_execute(self.__voltage_commands[self.__current_voltage_id], self.__voltage_config_timeout,
+                                              Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 1, 1, False)[0]["return_code"]
+    
+        # Ensure that the voltage is applied.
+        while int(ret_code) != 0:
+            logging.warning('Failed to configure voltage: ' + self.__current_voltage_id)
+            logging.warning('Configuring voltage: ' + self.__current_voltage_id)
+            ret_code = self.__remote_execute(self.__voltage_commands[self.__current_voltage_id], self.__voltage_config_timeout,
+                                             Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 1, 1, False)[0]["return_code"]
 
     def __target_set_frequency(self):
         pass
@@ -269,7 +263,7 @@ class Tester_Shell:
             This function preserves the program's current state by transforming the 
             class object into a linear sequence of bytes that can be saved and later loaded.
         """
-        filename: str = self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
+        filename: str = "state/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
         try:
             with open(filename, "wb") as serialized_instance:
                 pickle.dump(self, serialized_instance)
@@ -282,13 +276,13 @@ class Tester_Shell:
             achieves this by reversing the process of the save_state
             function
         """
-        filename: str = self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
+        filename: str = "state/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
         try:
             with open(filename, "rb") as decirialized_instance:
                 prev_state = pickle.load(decirialized_instance)
                 self.__dict__.update(prev_state.__dict__)
         except:
-            self.logging.warning("Failed to load previous state.")
+            logging.warning("Failed to load previous state.")
 
     def __remote_alive(self, boot_timeout_s: int, net_timeout_s: int, ret_imediate: bool) -> bool:
         """
@@ -356,8 +350,9 @@ class Tester_Shell:
                 return results
 
             except Exception as e:
+                print(e)
                 if first_error == True:
-                    self.__dete()
+                    self.__clacify_detected_error()
                 first_error = False
                 conn.close()
                 if execution_attempt_counter > Tester_Shell_Constants.CMD_EXECUTION_ATTEMPT.value:
@@ -449,20 +444,20 @@ class Tester_Shell:
 
         if self.__first_boot == True:
             self.__first_boot = False
-            results = self.remote_execute(self.__benchmark_commands[self.__current_benchmark_id], 
+            results = self.__remote_execute(self.__benchmark_commands[self.__current_benchmark_id], 
                                           self.__benchmark_cold_cache_timeout, 
-                                          Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 1, 1)
+                                          Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 1, 1, False)
             
             self.__dmesg_diff = results[0]["dmesg_diff"]
         else:
             self.__dmesg_index += len(self.__dmesg_diff)
-            results = self.remote_execute(self.__benchmark_commands[self.__current_benchmark_id], 
+            results = self.__remote_execute(self.__benchmark_commands[self.__current_benchmark_id], 
                                           self.__benchmark_timeout, 
                                           Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 
                                           self.__dmesg_index, 
-                                          self.__batch_per_benchmark[self.__current_benchmark_id])
+                                          self.__batch_per_benchmark[self.__current_benchmark_id], False)
             
-            last_executed_bench = self.batch_per_benchmark[self.__current_benchmark_id] - 1
+            last_executed_bench = self.__batch_per_benchmark[self.__current_benchmark_id] - 1
             self.__dmesg_diff = results[last_executed_bench]["dmesg_diff"]
 
         return results
@@ -489,14 +484,14 @@ class Tester_Shell:
                 self.__total_errors += 1
             else:
                 total_consecutive_errors = 0
-            
+
             batch.append_run_results(result, curr_result_correct, self.__dmesg_index, self.__run_counter)
 
             log_str = "Run: " + str(self.__run_counter) + " | Correct: " + str(curr_result_correct) + " | Effect-run-elapsed(ms): " + result["duration_ms"] + " | timestamp: " \
                     + result["timestamp"]
-            
+
             logging.info(log_str)
-            # TODO - parse monitor data here, using healthlog.
+            self._ovrd_callback_dut_monitor()
 
         self.__effective_total_elapsed_min += total_time_passed
         return total_consecutive_errors, batch
@@ -507,7 +502,6 @@ class Tester_Shell:
     """
         <--- Public methods for every implemetation --->
     """
-
     def load_experiment_attr_from_dict(self, src: dict):
         try:
             self.__voltage_commands   = src["voltage_commands"] 
@@ -535,7 +529,7 @@ class Tester_Shell:
         # Calculate the number of runs per batch for each benchmark.
         # And initialize the system/network errors per benchmark
         for benchmark in self.__benchmark_list:
-            self.__batch_per_benchmark[benchmark] = self.__effective_time_per_batch_s/self.__timeouts[benchmark]
+            self.__batch_per_benchmark[benchmark] = int(math.ceil(self.__effective_time_per_batch_s/self.__timeouts[benchmark]))
             self.__system_errors_per_benchmark[benchmark]  = 0
             self.__network_errors_per_benchmark[benchmark] = 0
 
@@ -555,7 +549,7 @@ class Tester_Shell:
         benchmarks_has_next = True
         voltage_has_next    = True
         while voltage_has_next:
-            #self.experiment_start()
+            self.experiment_start()
 
             benchmarks_has_next = self.__target_set_next_benchmark()
             if not benchmarks_has_next:
@@ -609,7 +603,7 @@ class Tester_Shell:
         while True:
             # Configure the voltage.
             command_to_exec = undervolt_command.format(VID=str(nominal_vid_hex + vid_steps))
-            self._remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value,
+            self.__remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value,
                                  Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 0, True)
 
             for bench in self.__benchmark_list:
@@ -644,7 +638,7 @@ class Tester_Shell:
             total_duration_s = 0
 
     def experiment_start(self):
-        self.logging.info('Starting... Benchmark: ' + self.__current_benchmark_id)
+        logging.info('Starting... Benchmark: ' + self.__current_benchmark_id)
 
         error_consecutive: int = 0
         curr_batch: Tester_Batch = Tester_Batch()
@@ -658,7 +652,7 @@ class Tester_Shell:
                 self.__save_results(curr_batch)
 
                 effective_elapsed_min = str("{:.2f}".format(round(self.__effective_total_elapsed_min, 2)))
-                self.__experiment_total_elapsed_s = (self.time() - self.__experiment_start_time)
+                self.__experiment_total_elapsed_s = (time() - self.__experiment_start_time)
 
                 log_str = "Resets: " + str(self.__reset_counter) + " | PowerCycles: " + str(self.__power_cycle_counter) \
                           + " | Effective-elapsed(min): " + str(effective_elapsed_min)
@@ -669,17 +663,9 @@ class Tester_Shell:
                                  " | SDCs: "+ str(self.__sdc_counter)
                 logging.info(log_errors_str)
 
-                network_errors_per_min = self.__network_errors_per_benchmark[self.__current_benchmark_id] / self.effective_total_elapsed_minutes
-                system_errors_per_min = self.__system_errors_per_benchmark[self.__current_benchmark_id] / self.effective_total_elapsed_minutes
-                total_errors_per_min = self.__total_errors / self.__experiment_total_elapsed_s
+                self._ovrd_callback_additional_logs()
 
-                logging.info(self.__current_benchmark_id + "| Network errors/Min: "+ str(network_errors_per_min)  + \
-                             " | App crash/Min: "+ str(system_errors_per_min) + \
-                             " | Total errors/Min: "+ str(total_errors_per_min))
-
-                # TODO - additional logs
-
-                experiment_elapsed_sec_str = str(self.timedelta(seconds=self.__experiment_total_elapsed_s))
+                experiment_elapsed_sec_str = str(timedelta(seconds=self.__experiment_total_elapsed_s))
                 logging.info("Total elapsed: "+ experiment_elapsed_sec_str + \
                              " (BENCH_ID = " + self.__current_benchmark_id + " | VOLTAGE_ID = " + self.__current_voltage_id + ")")
 
@@ -690,13 +676,12 @@ class Tester_Shell:
 
                 self.__save_state()
 
-                if ((self.effective_total_elapsed_minutes > Tester_Shell_Defaults.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES) \
-                    or (self.__total_errors > Tester_Shell_Defaults.FINISH_AFTER_TOTAL_ERRORS)):
+                if ((self.__effective_total_elapsed_min > self.__finish_after_total_effective_min) \
+                    or (self.__total_errors > self.__finish_after_total_errors)):
                     break
         except Exception:
-            self.logging.warning(self.traceback.format_exc())
+            logging.warning(traceback.format_exc())
             pass
-
 
     """
         <--- Protected methods for every implementation --->
@@ -744,7 +729,21 @@ class Tester_Shell:
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
         """
-        return True
+        pass
+
+    def _ovrd_callback_dut_monitor(self):
+        """
+            'ovrd_' prefix indicates that this method must be overriden
+            by the sub class.
+        """
+        pass
+
+    def _ovrd_callback_additional_logs(self):
+        """
+            'ovrd_' prefix indicates that this method must be overriden
+            by the sub class.
+        """
+        pass
 
 def main():
     test = Tester_Shell()
