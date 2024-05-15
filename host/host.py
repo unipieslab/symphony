@@ -475,6 +475,8 @@ class Tester_Shell:
             total_time_passed += (float(result["duration_ms"])/1000)/60  
             curr_result_correct = self._ovrd_callback_is_result_correct(result)
 
+            self._ovrd_callback_detect_cache_upsets(result["dmesg_diff"])
+
             if (curr_result_correct == False):
                 logging.error("Result SDC detected")
                 logging.error("Error_consecutive: " + str(total_consecutive_errors))
@@ -696,14 +698,7 @@ class Tester_Shell:
         """
         pass
 
-    def _ovrd_callback_detect_cache_upsets(self):
-        """
-            'ovrd_' prefix indicates that this method must be overriden
-            by the sub class.
-        """
-        pass
-
-    def _ovrd_callback_detect_posible_sdcs(self):
+    def _ovrd_callback_detect_cache_upsets(self, dmesg: str):
         """
             'ovrd_' prefix indicates that this method must be overriden
             by the sub class.
