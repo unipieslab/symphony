@@ -15,7 +15,7 @@ import os
 import requests
 from enum import Enum
 import pickle
-
+import cloudpickle
 import rpyc.core
 import rpyc.core.stream
 
@@ -57,6 +57,17 @@ class Tester_Shell_Power_Action(Enum):
     TARGET_POWER_BTN_PRESS = 0
     TARGET_RESET_BTN_PRESS = 1
 
+class Tester_Shell_Callback(Enum):
+    IS_RESULT_CORRECT   = "__callback_is_result_correct"
+    DETECT_CACHE_UPSETS = "__callback_detect_cache_upsets"
+    TARGET_RESET_BUTTON = "__callback_target_reset_button"
+    TARGET_POWER_BUTTON = "__callback_target_power_button"
+    TARGET_IS_NETWORK   = "__callback_target_is_network"
+    DUT_MONITOR         = "__callback_dut_monitor"
+    ADDITIONAL_LOGS     = "__callback_additional_logs"
+    UPDATE_ALL          = "__callback_update_all"
+    ACTIONS_ON_REBOOT   = "__callback_actions_on_reboot"
+
 class Tester_Batch:
     def __init__(self):
         self.__batch: dict = {}
@@ -75,14 +86,6 @@ class Tester_Batch:
 
     def get_batch(self):
         return self.__batch
-
-class Tester_DB:
-    
-    def __init__(self):
-        pass
-
-    def save_result_to_db(self):
-        pass
 
 class Tester_Shell:
     class CustomFormatter(logging.Formatter):
@@ -160,6 +163,17 @@ class Tester_Shell:
         self.__voltage_config_timeout: float = 0
         self.__benchmark_timeout: float = 0
 
+        # Callbacks to be implemented
+        self.__callback_is_result_correct: function   = lambda result: None
+        self.__callback_detect_cache_upsets: function = lambda dmesg: None
+        self.__callback_target_reset_button: function = lambda: None
+        self.__callback_target_power_button: function = lambda: None
+        self.__callback_target_is_network: function   = lambda: None
+        self.__callback_dut_monitor: function         = lambda: None
+        self.__callback_additional_logs: function     = lambda: None
+        self.__callback_update_all: function          = lambda: None
+        self.__callback_actions_on_reboot: function   = lambda: None
+
         # Debug flags.
         self.__debug_disable_resets: bool  = False
 
@@ -189,7 +203,7 @@ class Tester_Shell:
 
         self.__target_set_voltage()
 
-        self._ovrd_callback_update_all()
+        self.__callback_update_all()
 
     def __target_set_voltage(self):
         logging.warning('Configuring voltage: ' + self.__current_voltage_id)
@@ -263,7 +277,7 @@ class Tester_Shell:
         filename: str = "state/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
         try:
             with open(filename, "wb") as serialized_instance:
-                pickle.dump(self, serialized_instance)
+                cloudpickle.dump(self, serialized_instance)
         except:
             self.logging.warning("Failed to save the current state.")
 
@@ -276,7 +290,7 @@ class Tester_Shell:
         filename: str = "state/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
         try:
             with open(filename, "rb") as decirialized_instance:
-                prev_state = pickle.load(decirialized_instance)
+                prev_state = cloudpickle.load(decirialized_instance)
                 self.__dict__.update(prev_state.__dict__)
         except:
             logging.warning("Failed to load previous state.")
@@ -319,7 +333,7 @@ class Tester_Shell:
         return results
 
     def __clacify_detected_error(self):
-        if (self._ovrd_callback_target_is_network() == True):
+        if (self.__callback_target_is_network() == True):
             self.__network_errors_per_benchmark[self.__current_benchmark_id] += 1
             logging.warning("Network error detected.")
         else:
@@ -401,9 +415,9 @@ class Tester_Shell:
             self.__run_counter += 1
 
             total_time_passed += (float(result["duration_ms"])/1000)/60  
-            curr_result_correct = self._ovrd_callback_is_result_correct(result)
+            curr_result_correct = self.__callback_is_result_correct(result)
 
-            self._ovrd_callback_detect_cache_upsets(result["dmesg_diff"])
+            self.__callback_detect_cache_upsets(result["dmesg_diff"])
 
             if (curr_result_correct == False):
                 logging.error("Result SDC detected")
@@ -421,7 +435,7 @@ class Tester_Shell:
                     + result["timestamp"]
 
             logging.info(log_str)
-            self._ovrd_callback_dut_monitor()
+            self.__callback_dut_monitor()
 
         self.__effective_total_elapsed_min += total_time_passed
         return total_consecutive_errors, batch
@@ -571,26 +585,26 @@ class Tester_Shell:
             The specific actions for these buttons are not defined
             here but rather in subclasses. In order for this to work, 
             subclasses must implement the following functions:
-                - _ovrd_callback_target_power_button (Optional)
-                - _ovrd_callback_target_reset_button
+                - __callback_target_power_button (Optional)
+                - __callback_target_reset_button
         """
         if self.__debug_disable_resets == True:
             return
 
         if action == Tester_Shell_Power_Action.TARGET_POWER_BTN_PRESS:
-            self._ovrd_callback_target_power_button()
+            self.__callback_target_power_button()
         elif action == Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS:
             alive = False
             while not alive:
                 self.__reset_counter += 1
                 logging.warning("Remote is down..trying to reset")
-                self._ovrd_callback_target_reset_button()
+                self.__callback_target_reset_button()
                 sleep(self.__boot_timeout_sec)
                 alive = self.__remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
             logging.info("Booted")
 
         self.__target_set_voltage()
-        self._ovrd_callback_actions_on_reboot()
+        self.__callback_actions_on_reboot()
 
     def auto_undervolt_characterization(self, nominal_vid_hex: int, undervolt_command: str, duration_per_bench_min: int) -> int:
         self.logging.info("Starting undervolting characterization for " + self.__current_benchmark_id)
@@ -660,7 +674,7 @@ class Tester_Shell:
                                  " | SDCs: "+ str(self.__sdc_counter)
                 logging.info(log_errors_str)
 
-                self._ovrd_callback_additional_logs()
+                self.__callback_additional_logs()
 
                 experiment_elapsed_sec_str = str(timedelta(seconds=self.__experiment_total_elapsed_s))
                 logging.info("Total elapsed: "+ experiment_elapsed_sec_str + \
@@ -680,74 +694,16 @@ class Tester_Shell:
             logging.warning(traceback.format_exc())
             pass
 
-    """
-        <--- Protected methods for every implementation --->
-    """
-    """
-        <--- Implementation dependent methods --->
-    """
-    def _ovrd_callback_is_result_correct(self, result) -> bool:
-        """
-            'ovrd_' prefix indicates that this method must be overriden
-            by the sub class.
-        """
-        pass
+    def set_callback(self, callback_func, callback_id: Tester_Shell_Callback):
+        # Assign the callback function to the coresponded function pointer.
+        try:
+            internal_name = "_" + self.__class__.__name__ + callback_id.value
+            self.__dict__[internal_name]
+        except:
+            logging.error("No such callback exists")
+            exit(0)
 
-    def _ovrd_callback_detect_cache_upsets(self, dmesg: str):
-        """
-            'ovrd_' prefix indicates that this method must be overriden
-            by the sub class.
-        """
-        pass
-
-    def _ovrd_callback_target_reset_button(self):
-        """
-            'ovrd_' prefix indicates that this method must be overriden
-            by the sub class.
-        """
-        pass
-
-    def _ovrd_callback_target_power_button(self):
-        """
-            'ovrd_' prefix indicates that this method must be overriden
-            by the sub class.
-        """
-        pass
-
-    def _ovrd_callback_target_is_network(self) -> bool:
-        """
-            'ovrd_' prefix indicates that this method must be overriden
-            by the sub class.
-        """
-        pass
-
-    def _ovrd_callback_dut_monitor(self):
-        """
-            'ovrd_' prefix indicates that this method must be overriden
-            by the sub class.
-        """
-        pass
-
-    def _ovrd_callback_additional_logs(self):
-        """
-            'ovrd_' prefix indicates that this method must be overriden
-            by the sub class.
-        """
-        pass
-
-    def _ovrd_callback_update_all(self):
-        """
-            'ovrd_' prefix indicates that this method must be overriden
-            by the sub class.
-        """
-        pass
-
-    def _ovrd_callback_actions_on_reboot(self):
-        """
-            'ovrd_' prefix indicates that this method must be overriden
-            by the sub class.
-        """
-        pass
+        self.__dict__[internal_name] = callback_func
 
 def main():
     test = Tester_Shell()
