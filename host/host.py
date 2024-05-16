@@ -1,10 +1,8 @@
-import sys # for exit
 import orjson
 import traceback
 import rpyc
 from time import sleep
 import json
-import re
 from datetime import datetime
 import logging
 from time import time
@@ -12,9 +10,7 @@ import timeit
 import math
 from datetime import timedelta
 import os 
-import requests
 from enum import Enum
-import pickle
 import cloudpickle
 import rpyc.core
 import rpyc.core.stream
@@ -718,11 +714,17 @@ class Tester_Shell:
             pass
 
     def set_callback(self, callback_func, callback_id: Tester_Shell_Callback):
+        if (not isinstance(callback_id, Tester_Shell_Callback)):
+            logging.error("Error cause: " + str(callback_id))
+            logging.error("Error message: No such callback exists")
+            exit(0)
+
         # Assign the callback function to the coresponded function pointer.
         try:
             internal_name = "_" + self.__class__.__name__ + callback_id.value
             self.__dict__[internal_name]
         except:
+            logging.error("Error cause: " + str(callback_id))
             logging.error("No such callback exists")
             exit(0)
 
