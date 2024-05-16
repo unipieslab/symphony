@@ -31,9 +31,13 @@ class Tester_Shell_Constants(Enum):
         CURRENT_PMD_THRESHOLD_SCALE: This value determines the factor by which to increase the power consumption threshold of PMD.
         CURRENT_SOC_THRESHOLD_SCALE: This value determines the factor by which to increase the power consumption threshold for the System-on-Chip (SoC).
         TIMEOUT_SCALE_BOOT: This value determines the factor by which to increase the boot time threshold.
+        TIMEOUT_SCALE_VOLTAGE: This value determines the factor by which to increase the voltage runtime threshold.
+        TIMEOUT_COLD_CACHE_SCALE_BENCHMARK: This value determines the factor by which to increase the benchmark runtime threshold on the first run.
         RESET_AFTER_CONCECUTIVE_ERRORS: This value determines the number of consecutive errors that must occur before the experiment system automatically resets.
         EFFECTIVE_SEC_PER_BATCH: This value determines the allocated time (in seconds) for each batch of benchmarks to run.
         BENCHMARK_VERIFICATOIN_REGEX: This value specifies the regular expression used to validate the output of a benchmark run. A successful match indicates the benchmark completed correctly.
+        NETWORK_TIMEOUT_SEC: This value specifies the maximum wait time before the host determines that the device under test (DUT) is down. 
+        CMD_EXECUTION_ATTEMPT: This specifies the number of times the host will attempt to execute a command before a reset is required.
     """
     PMD_THRESHOLD                      = 95.0
     SOC_THRESHOLD                      = 95.0
@@ -45,19 +49,39 @@ class Tester_Shell_Constants(Enum):
     RESET_AFTER_CONCECUTIVE_ERRORS     = 2.00
     EFFECTIVE_SEC_PER_BATCH            = 20.0
     BENCHMARK_VERIFICATOIN_REGEX       = r'Verification( +)=(. +.*)'
-    DMESG_TIMEOUT                      = 10.0
     NETWORK_TIMEOUT_SEC                = 2.00
     CMD_EXECUTION_ATTEMPT              = 1.00
 
 class Tester_Shell_Defaults(Enum):
+    """
+        FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES: Specifies the total number of minutes required to complete the experiment.
+        FINISH_AFTER_TOTAL_ERRORS: Specifies the total number of errors allowed before the experiment is terminated.
+    """
     FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = 100
     FINISH_AFTER_TOTAL_ERRORS            = 100
-    
+
 class Tester_Shell_Power_Action(Enum):
+    """
+        This enum is used to control the power and reset buttons of the DUT (Device Under Test).
+        TARGET_POWER_BTN_PRESS: Presses the power button of the DUT.
+        TARGET_RESET_BTN_PRESS: Presses the reset button of the DUT.
+    """
     TARGET_POWER_BTN_PRESS = 0
     TARGET_RESET_BTN_PRESS = 1
 
 class Tester_Shell_Callback(Enum):
+    """
+        This enum is used to assign functions that determine the functionality of various callbacks within the host.
+        IS_RESULT_CORRECT: Assign a function to determine the functionality of the is_result_correct callback.
+        DETECT_CACHE_UPSETS: Assign a function to determine the functionality of the detect_cache_upsets callback.
+        TARGET_RESET_BUTTON: Assign a function to determine the functionality of the target_reset_button callback.
+        TARGET_POWER_BUTTON: Assign a function to determine the functionality of the target_power_button callback.
+        TARGET_IS_NETWORK: Assign a function to determine the functionality of the target_is_network callback.
+        DUT_MONITOR: Assign a function to determine the functionality of the dut_monitor callback.
+        ADDITIONAL_LOGS: Assign a function to determine the functionality of the additional_logs callback.
+        UPDATE_ALL: Assign a function to determine the functionality of the update_all callback.
+        ACTIONS_ON_REBOOT: Assign a function to determine the functionality of the actions_on_reboot callback.
+    """
     IS_RESULT_CORRECT   = "__callback_is_result_correct"
     DETECT_CACHE_UPSETS = "__callback_detect_cache_upsets"
     TARGET_RESET_BUTTON = "__callback_target_reset_button"
@@ -198,11 +222,10 @@ class Tester_Shell:
         self.__timeout_scale_benchmark = 2 * self.__batch_per_benchmark[self.__current_benchmark_id] 
         self.__boot_timeout_sec = round(self.__timeouts["BOOT"] * Tester_Shell_Constants.TIMEOUT_SCALE_BOOT.value)
         self.__voltage_config_timeout = round(self.__timeouts[self.__current_voltage_id] * Tester_Shell_Constants.TIMEOUT_SCALE_VOLTAGE.value)
-        self.__benchmark_timeout = 2 * round(self.__batch_per_benchmark[self.__current_benchmark_id] * self.__timeouts[self.__current_benchmark_id])
+        self.__benchmark_timeout = round(self.__timeout_scale_benchmark * self.__timeouts[self.__current_benchmark_id])
         self.__benchmark_cold_cache_timeout = round(self.__timeouts[self.__current_benchmark_id] * Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value)
 
         self.__target_set_voltage()
-
         self.__callback_update_all()
 
     def __target_set_voltage(self):
