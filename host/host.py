@@ -705,6 +705,14 @@ class Tester_Shell:
 
         self.__dict__[internal_name] = callback_func
 
+    @property
+    def current_benchmark_id(self) -> str:
+        return self.__current_benchmark_id
+    
+    @property
+    def current_voltage_id(self) -> str:
+        return self.__current_voltage_id
+
 def main():
     test = Tester_Shell()
     test.load_experiment_attr_from_json_file("test.json")
