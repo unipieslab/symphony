@@ -35,18 +35,20 @@ class Tester_Shell_Constants(Enum):
         @attribute NETWORK_TIMEOUT_SEC: This value specifies the maximum wait time before the host determines that the device under test (DUT) is down. 
         @attribute CMD_EXECUTION_ATTEMPT: This specifies the number of times the host will attempt to execute a command before a reset is required.
     """
-    PMD_THRESHOLD                      = 95.0
-    SOC_THRESHOLD                      = 95.0
-    CURRENT_PMD_THRESHOLD_SCALE        = 1.02
-    CURRENT_SOC_THRESHOLD_SCALE        = 1.02
-    TIMEOUT_SCALE_BOOT                 = 1.00
-    TIMEOUT_SCALE_VOLTAGE              = 1.20
-    TIMEOUT_COLD_CACHE_SCALE_BENCHMARK = 4.00
-    RESET_AFTER_CONCECUTIVE_ERRORS     = 2.00
-    EFFECTIVE_SEC_PER_BATCH            = 20.0
-    BENCHMARK_VERIFICATOIN_REGEX       = r'Verification( +)=(. +.*)'
-    NETWORK_TIMEOUT_SEC                = 2.00
-    CMD_EXECUTION_ATTEMPT              = 1.00
+    PMD_THRESHOLD                      =  95.0
+    SOC_THRESHOLD                      =  95.0
+    CURRENT_PMD_THRESHOLD_SCALE        =  1.02
+    CURRENT_SOC_THRESHOLD_SCALE        =  1.02
+    TIMEOUT_SCALE_BOOT                 =  1.00
+    TIMEOUT_SCALE_VOLTAGE              =  1.20
+    TIMEOUT_COLD_CACHE_SCALE_BENCHMARK =  4.00
+    RESET_AFTER_CONCECUTIVE_ERRORS     =  2.00
+    EFFECTIVE_SEC_PER_BATCH            =  20.0
+    BENCHMARK_VERIFICATOIN_REGEX       =  r'Verification( +)=(. +.*)'
+    NETWORK_TIMEOUT_SEC                =  2.00
+    CMD_EXECUTION_ATTEMPT              =  1.00
+    UNDERVOLT_POSITIVE_STEP            =  1.00
+    UNDERVOLT_NEGATIVE_STEP            = -1.00
 
 class Tester_Shell_Defaults(Enum):
     """
@@ -80,15 +82,17 @@ class Tester_Shell_Callback(Enum):
         @attribute UPDATE_ALL: Assign a function to determine the functionality of the update_all callback.
         @attribute ACTIONS_ON_REBOOT: Assign a function to determine the functionality of the actions_on_reboot callback.
     """
-    IS_RESULT_CORRECT   = "__callback_is_result_correct"
-    DETECT_CACHE_UPSETS = "__callback_detect_cache_upsets"
-    TARGET_RESET_BUTTON = "__callback_target_reset_button"
-    TARGET_POWER_BUTTON = "__callback_target_power_button"
-    TARGET_IS_NETWORK   = "__callback_target_is_network"
-    DUT_MONITOR         = "__callback_dut_monitor"
-    ADDITIONAL_LOGS     = "__callback_additional_logs"
-    UPDATE_ALL          = "__callback_update_all"
-    ACTIONS_ON_REBOOT   = "__callback_actions_on_reboot"
+    IS_RESULT_CORRECT       = "__callback_is_result_correct"
+    DETECT_CACHE_UPSETS     = "__callback_detect_cache_upsets"
+    TARGET_RESET_BUTTON     = "__callback_target_reset_button"
+    TARGET_POWER_BUTTON     = "__callback_target_power_button"
+    TARGET_IS_NETWORK       = "__callback_target_is_network"
+    DUT_MONITOR             = "__callback_dut_monitor"
+    ADDITIONAL_LOGS         = "__callback_additional_logs"
+    UPDATE_ALL              = "__callback_update_all"
+    ACTIONS_ON_REBOOT       = "__callback_actions_on_reboot"
+    UNDERVOLT_FROMAT        = "__callback_unvervolt_characterization"
+    UNDERVOLT_VOLTAGE_VALUE = "__callback_undervolt_voltage_value"
 
 class Tester_Batch:
     def __init__(self):
@@ -186,16 +190,17 @@ class Tester_Shell:
         self.__benchmark_timeout: float = 0
 
         # Callbacks to be implemented
-        self.__callback_is_result_correct: function   = lambda result: None
-        self.__callback_detect_cache_upsets: function = lambda dmesg: None
-        self.__callback_target_reset_button: function = lambda: None
-        self.__callback_target_power_button: function = lambda: None
-        self.__callback_target_is_network: function   = lambda: None
-        self.__callback_dut_monitor: function         = lambda: None
-        self.__callback_additional_logs: function     = lambda: None
-        self.__callback_update_all: function          = lambda: None
-        self.__callback_actions_on_reboot: function   = lambda: None
-
+        self.__callback_is_result_correct: function       = lambda result: None
+        self.__callback_detect_cache_upsets: function     = lambda dmesg: None
+        self.__callback_target_reset_button: function     = lambda: None
+        self.__callback_target_power_button: function     = lambda: None
+        self.__callback_target_is_network: function       = lambda: None
+        self.__callback_dut_monitor: function             = lambda: None
+        self.__callback_additional_logs: function         = lambda: None
+        self.__callback_update_all: function              = lambda: None
+        self.__callback_actions_on_reboot: function       = lambda: None
+        self.__callback_undervolt_voltage_value: function = lambda: str # TODO - returns a string which represent the current voltage value (undervolt characterization specific)
+        self.__callback_unvervolt_format: function        = lambda: str # TODO - returns a string which the next voltage (step), in the right format  (undervolt characterization specific)
         # Debug flags.
         self.__debug_disable_resets: bool  = False
 
@@ -223,7 +228,7 @@ class Tester_Shell:
         self.__benchmark_timeout = round(self.__timeout_scale_benchmark * self.__timeouts[self.__current_benchmark_id])
         self.__benchmark_cold_cache_timeout = round(self.__timeouts[self.__current_benchmark_id] * Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value)
 
-        self.__target_set_voltage()
+        #self.__target_set_voltage() Redundunt. See functions: ~ reset_state ~ and ~ power_handler ~.
         self.__callback_update_all()
 
     def __target_set_voltage(self):
@@ -313,6 +318,8 @@ class Tester_Shell:
             with open(filename, "rb") as decirialized_instance:
                 prev_state = cloudpickle.load(decirialized_instance)
                 self.__dict__.update(prev_state.__dict__)
+            # If the experiment is unbervolt related, then ensure that the voltage is set.
+            if (len(self.__voltage_list) > 0): self.__target_set_voltage()
         except:
             logging.warning("Failed to load previous state.")
 
@@ -537,6 +544,7 @@ class Tester_Shell:
         logging.warning("Setting CURRENT_VOLTAGE_ID = " + self.__voltage_list[next_vid_index])
         self.__current_voltage_id = self.__voltage_list[next_vid_index]
         self.__target_set_voltage()
+        self.__update()
 
         return True
 
@@ -601,6 +609,7 @@ class Tester_Shell:
     def target_perform_undervolt_test(self):
         logging.warning("Start the undervolting process for: " + self.__target_ip)
 
+        self.__target_set_voltage()
         benchmarks_has_next = True
         voltage_has_next    = True
         while voltage_has_next:
@@ -648,22 +657,27 @@ class Tester_Shell:
                 alive = self.remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
             logging.info("Booted")
 
-        self.__target_set_voltage()
+        # If the experiment is undervolt related, then restore the voltage after the power cycle.
+        if (len(self.__voltage_list) > 0): self.__target_set_voltage()
         self.__callback_actions_on_reboot()
 
-    def auto_undervolt_characterization(self, nominal_vid_hex: int, undervolt_command: str, duration_per_bench_min: int) -> int:
+    def auto_undervolt_characterization(self, nominal_vid_hex: int, undervolt_command: str, duration_per_bench_min: int, characterization_id: str) -> int:
         """
             @param nominal_vid_hex
             @param undervolt_command
             @param duration_per_bench_min
         """
-        self.logging.info("Starting undervolting characterization for " + self.__current_benchmark_id)
-        vid_steps = 0x0
+        self.logging.warning("Starting undervolting characterization for " + self.__current_benchmark_id)
+        self.logging.warning("Characterization ID: " + characterization_id)
+        #vid_steps = 0x0
+        safe_voltage = ""
+
         timer_start = 0
         total_duration_s = 0
         while True:
             # Configure the voltage.
-            command_to_exec = undervolt_command.format(VID=str(nominal_vid_hex + vid_steps))
+            #command_to_exec = undervolt_command.format(VID=str(nominal_vid_hex + vid_steps))
+            command_to_exec = self.__callback_unvervolt_format() # Retrieve the next command with the user defined step and format
             self.remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value,
                                  Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 0, True)
 
@@ -672,9 +686,10 @@ class Tester_Shell:
                 if not alive:
                     self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS.value)
                     self.__first_boot = True
-                    vid_steps -= 1
-                    self.logging.info("Found Vsafe: " + vid_steps)
-                    return vid_steps
+                    #vid_steps -= 1
+
+                    self.logging.info("Found Vsafe: " + safe_voltage)
+                    return safe_voltage
                 
                 if (total_duration_s / 60 == duration_per_bench_min):
                     break
@@ -695,7 +710,9 @@ class Tester_Shell:
 
                 total_duration_s += (datetime.now() - timer_start).seconds
 
-            vid_steps += 0x1
+                safe_voltage = self.__callback_undervolt_voltage_value()
+
+            #vid_steps += 0x1
             total_duration_s = 0
 
     def experiment_start(self):
@@ -765,6 +782,8 @@ class Tester_Shell:
 
         self.__dict__[internal_name] = callback_func
 
+    # TODO - make a function that will calculate the timeouts. (as a helper function)
+
     @property
     def current_benchmark_id(self) -> str:
         return self.__current_benchmark_id
@@ -773,11 +792,3 @@ class Tester_Shell:
     def current_voltage_id(self) -> str:
         return self.__current_voltage_id
 
-def main():
-    test = Tester_Shell()
-    test.load_experiment_attr_from_json_file("UltraScalePlusMPsoc.json")
-
-    test.target_perform_undervolt_test()
-
-if __name__ == '__main__':
-    main()

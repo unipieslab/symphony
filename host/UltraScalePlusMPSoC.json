@@ -4,7 +4,7 @@
     "finish_after_total_errors": null,
 
     "voltage_commands": {
-        "VID16": "i2cset -y -f 0 0x13 0x21 0x334 w"
+        "850mV": "i2cset -y -f 0 0x13 0x21 0x0d99 w"
     },
     "benchmark_commands": {
         "resnet50": "LD_LIBRARY_PATH=/home/root/app/samples/lib /home/root/app/samples/bin/resnet50_up /home/root/app/img/bellpeppe-994958.JPEG /home/root/app/resnet50.xmodel"
@@ -12,10 +12,10 @@
     "timeouts": {
         "BOOT": 12,
         "resnet50": 20,
-        "VID16": 50
+        "850mV": 50
     }, 
 
-    "voltage_list": ["VID16"],
+    "voltage_list": ["850mV"],
     "benchmark_list": ["resnet50"],
     "target_ip": "10.30.0.69",
     "target_port": 18864,
