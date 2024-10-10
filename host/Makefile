@@ -5,5 +5,3 @@ all:
 	mkdir state/
 	mkdir results/
 	sh ./createVenv.sh
-
-

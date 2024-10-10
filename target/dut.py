@@ -81,15 +81,15 @@ class ExecuteService(rpyc.Service):
             _, _, _, messages = self.sys_run("dmesg --ctime")
             dmesg_diff = messages[dmesg_index: len(messages)]
 
-            stop_monitor_th = threading.Event()
+            self.stop_monitor_th = threading.Event()
             monitor_th = threading.Thread(target=self.monitor_routine_th, args=[])
             # Start the thread.
             monitor_th.start()
             
             duration_ms, return_code, stderror, stdoutput = self.sys_run(run_command)
-            stop_monitor_th.set()
+            self.stop_monitor_th.set()
             monitor_th.join()
-            stop_monitor_th.clear()
+            self.stop_monitor_th.clear()
 
             timestamp = self.get_timestamp() # current day and time
             healthlog = ""

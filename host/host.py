@@ -22,18 +22,18 @@ os.environ["PYDEVD_WARN_SLOW_RESOLVE_TIMEOUT"] = "20.0"
 
 class Tester_Shell_Constants(Enum):
     """
-        PMD_THRESHOLD: This value determines the maximum acceptable power consumption for the PMD.
-        SOC_THRESHOLD: This value determines the maximum acceptable power consumption for the SoC.
-        CURRENT_PMD_THRESHOLD_SCALE: This value determines the factor by which to increase the power consumption threshold of PMD.
-        CURRENT_SOC_THRESHOLD_SCALE: This value determines the factor by which to increase the power consumption threshold for the System-on-Chip (SoC).
-        TIMEOUT_SCALE_BOOT: This value determines the factor by which to increase the boot time threshold.
-        TIMEOUT_SCALE_VOLTAGE: This value determines the factor by which to increase the voltage runtime threshold.
-        TIMEOUT_COLD_CACHE_SCALE_BENCHMARK: This value determines the factor by which to increase the benchmark runtime threshold on the first run.
-        RESET_AFTER_CONCECUTIVE_ERRORS: This value determines the number of consecutive errors that must occur before the experiment system automatically resets.
-        EFFECTIVE_SEC_PER_BATCH: This value determines the allocated time (in seconds) for each batch of benchmarks to run.
-        BENCHMARK_VERIFICATOIN_REGEX: This value specifies the regular expression used to validate the output of a benchmark run. A successful match indicates the benchmark completed correctly.
-        NETWORK_TIMEOUT_SEC: This value specifies the maximum wait time before the host determines that the device under test (DUT) is down. 
-        CMD_EXECUTION_ATTEMPT: This specifies the number of times the host will attempt to execute a command before a reset is required.
+        @attribute PMD_THRESHOLD: This value determines the maximum acceptable power consumption for the PMD.
+        @attribute SOC_THRESHOLD: This value determines the maximum acceptable power consumption for the SoC.
+        @attribute CURRENT_PMD_THRESHOLD_SCALE: This value determines the factor by which to increase the power consumption threshold of PMD.
+        @attribute CURRENT_SOC_THRESHOLD_SCALE: This value determines the factor by which to increase the power consumption threshold for the System-on-Chip (SoC).
+        @attribute TIMEOUT_SCALE_BOOT: This value determines the factor by which to increase the boot time threshold.
+        @attribute TIMEOUT_SCALE_VOLTAGE: This value determines the factor by which to increase the voltage runtime threshold.
+        @attribute TIMEOUT_COLD_CACHE_SCALE_BENCHMARK: This value determines the factor by which to increase the benchmark runtime threshold on the first run.
+        @attribute RESET_AFTER_CONCECUTIVE_ERRORS: This value determines the number of consecutive errors that must occur before the experiment system automatically resets.
+        @attribute EFFECTIVE_SEC_PER_BATCH: This value determines the allocated time (in seconds) for each batch of benchmarks to run.
+        @attribute BENCHMARK_VERIFICATOIN_REGEX: This value specifies the regular expression used to validate the output of a benchmark run. A successful match indicates the benchmark completed correctly.
+        @attribute NETWORK_TIMEOUT_SEC: This value specifies the maximum wait time before the host determines that the device under test (DUT) is down. 
+        @attribute CMD_EXECUTION_ATTEMPT: This specifies the number of times the host will attempt to execute a command before a reset is required.
     """
     PMD_THRESHOLD                      = 95.0
     SOC_THRESHOLD                      = 95.0
@@ -50,8 +50,8 @@ class Tester_Shell_Constants(Enum):
 
 class Tester_Shell_Defaults(Enum):
     """
-        FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES: Specifies the total number of minutes required to complete the experiment.
-        FINISH_AFTER_TOTAL_ERRORS: Specifies the total number of errors allowed before the experiment is terminated.
+        @attribute FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES: Specifies the total number of minutes required to complete the experiment.
+        @attribute FINISH_AFTER_TOTAL_ERRORS: Specifies the total number of errors allowed before the experiment is terminated.
     """
     FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES = 100
     FINISH_AFTER_TOTAL_ERRORS            = 100
@@ -59,8 +59,9 @@ class Tester_Shell_Defaults(Enum):
 class Tester_Shell_Power_Action(Enum):
     """
         This enum is used to control the power and reset buttons of the DUT (Device Under Test).
-        TARGET_POWER_BTN_PRESS: Presses the power button of the DUT.
-        TARGET_RESET_BTN_PRESS: Presses the reset button of the DUT.
+        
+        @attribute TARGET_POWER_BTN_PRESS: Presses the power button of the DUT.
+        @attribute TARGET_RESET_BTN_PRESS: Presses the reset button of the DUT.
     """
     TARGET_POWER_BTN_PRESS = 0
     TARGET_RESET_BTN_PRESS = 1
@@ -68,15 +69,16 @@ class Tester_Shell_Power_Action(Enum):
 class Tester_Shell_Callback(Enum):
     """
         This enum is used to assign functions that determine the functionality of various callbacks within the host.
-        IS_RESULT_CORRECT: Assign a function to determine the functionality of the is_result_correct callback.
-        DETECT_CACHE_UPSETS: Assign a function to determine the functionality of the detect_cache_upsets callback.
-        TARGET_RESET_BUTTON: Assign a function to determine the functionality of the target_reset_button callback.
-        TARGET_POWER_BUTTON: Assign a function to determine the functionality of the target_power_button callback.
-        TARGET_IS_NETWORK: Assign a function to determine the functionality of the target_is_network callback.
-        DUT_MONITOR: Assign a function to determine the functionality of the dut_monitor callback.
-        ADDITIONAL_LOGS: Assign a function to determine the functionality of the additional_logs callback.
-        UPDATE_ALL: Assign a function to determine the functionality of the update_all callback.
-        ACTIONS_ON_REBOOT: Assign a function to determine the functionality of the actions_on_reboot callback.
+
+        @attribute IS_RESULT_CORRECT: Assign a function to determine the functionality of the is_result_correct callback.
+        @attribute DETECT_CACHE_UPSETS: Assign a function to determine the functionality of the detect_cache_upsets callback.
+        @attribute TARGET_RESET_BUTTON: Assign a function to determine the functionality of the target_reset_button callback.
+        @attribute TARGET_POWER_BUTTON: Assign a function to determine the functionality of the target_power_button callback.
+        @attribute TARGET_IS_NETWORK: Assign a function to determine the functionality of the target_is_network callback.
+        @attribute DUT_MONITOR: Assign a function to determine the functionality of the dut_monitor callback.
+        @attribute ADDITIONAL_LOGS: Assign a function to determine the functionality of the additional_logs callback.
+        @attribute UPDATE_ALL: Assign a function to determine the functionality of the update_all callback.
+        @attribute ACTIONS_ON_REBOOT: Assign a function to determine the functionality of the actions_on_reboot callback.
     """
     IS_RESULT_CORRECT   = "__callback_is_result_correct"
     DETECT_CACHE_UPSETS = "__callback_detect_cache_upsets"
@@ -99,7 +101,7 @@ class Tester_Batch:
         """
         results["correct"]     = correct
         results["dmesg_index"] = str(dmesg_index)
-        results["run_counter"] = run_counter, 
+        results["run_counter"] = run_counter 
 
         self.__batch[str(self.__run)] = results
         self.__run += 1
@@ -314,34 +316,11 @@ class Tester_Shell:
         except:
             logging.warning("Failed to load previous state.")
 
-    def __remote_alive(self, boot_timeout_s: int, net_timeout_s: int, ret_imediate: bool) -> bool:
-        """
-            This function verifies if the machine running the experiment is 
-            connected and functional. It takes two parameters:
-
-            @param boot_timeout_s: This specifies the maximum time (in seconds) the target 
-                                   machine is allowed to take for booting up.
-            @param net_timeout_s: This defines a predefined threshold (in seconds) 
-                                  for waiting for a network response from the target machine.
-        """
-        conn = self.__target_connect_common(boot_timeout_s, net_timeout_s, ret_imediate)
-        alive: bool = False
-        logging.info('Checking if remote is up')
-        if conn == None:
-            return False
-        
-        try:
-            alive = conn.root.alive()
-            logging.info('Remote is up')
-
-            conn.close()
-            return alive
-        except:
-            conn.close()
-
     def __decode_target_response(self, response) -> list:
-        # Fix the data accessing issue. Note: When the connection close, the data that has been transfered became unreachable.
-        # By typecasting the data to it's original type,we overcome this issue. It seems the type 'rpyc.core.netref.type' has this issue.
+        """
+            @param response
+            @returns 
+        """
         data = orjson.loads(response)
         conv_to_list: list = list(data)
         results: list = []
@@ -360,6 +339,9 @@ class Tester_Shell:
             logging.warning("System error detected.")
 
     def __load_optional_attr_from_dict(self, src: dict):
+        """
+            @param src
+        """
         # (OPTIONAL) fields.
         effective_time_per_batch_s: float       = None
         finish_after_total_effective_min: float = None
@@ -387,7 +369,9 @@ class Tester_Shell:
             logging.warning("Setting FINISH_AFTER_TOTAL_ERRORS = " + str(finish_after_total_errors))
             self.__finish_after_total_errors = finish_after_total_errors
 
-    def __validate_attr_on_dict(self, src: dict):
+    def __validate_attr_on_dict(self):
+        """
+        """
         try:
             [self.__voltage_commands[vid] for vid in self.__voltage_list]
             [self.__benchmark_commands[bid] for bid in self.__benchmark_list]
@@ -424,6 +408,9 @@ class Tester_Shell:
         return results
 
     def __experiment_execute_actions_for_each_result(self, src: list) -> tuple[int, Tester_Batch]:
+        """
+            @param src
+        """
         curr_result_correct: bool = True
         total_time_passed: float = 0.0
         total_consecutive_errors: int = 0
@@ -465,8 +452,42 @@ class Tester_Shell:
     """
         <--- Public methods for every implemetation --->
     """
+
+    def remote_alive(self, boot_timeout_s: int, net_timeout_s: int, ret_imediate: bool) -> bool:
+        """
+            This function verifies if the machine running the experiment is 
+            connected and functional. It takes two parameters:
+
+            @param boot_timeout_s: This specifies the maximum time (in seconds) the target 
+                                   machine is allowed to take for booting up.
+            @param net_timeout_s: This defines a predefined threshold (in seconds) 
+                                  for waiting for a network response from the target machine.
+        """
+        conn = self.__target_connect_common(boot_timeout_s, net_timeout_s, ret_imediate)
+        alive: bool = False
+        logging.info('Checking if remote is up')
+        if conn == None:
+            return False
+        
+        try:
+            alive = conn.root.alive()
+            logging.info('Remote is up')
+
+            conn.close()
+            return alive
+        except:
+            conn.close()
+
     def remote_execute(self, cmd: str, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int, ret_imediate: bool) -> list:
-        alive = self.__remote_alive(self.__boot_timeout_sec, net_timeout_s, ret_imediate)
+        """
+            @param cmd
+            @param cmd_timeout_s
+            @param net_timeout_s
+            @param dmesg_index
+            @param times
+            @param ret_imediate
+        """
+        alive = self.remote_alive(self.__boot_timeout_sec, net_timeout_s, ret_imediate)
         if (not alive and ret_imediate == True):
             return
         elif (not alive):
@@ -534,6 +555,9 @@ class Tester_Shell:
         return True
 
     def load_experiment_attr_from_dict(self, src: dict):
+        """
+            @param src
+        """
         try:
             self.__voltage_commands   = src["voltage_commands"] 
             self.__benchmark_commands = src["benchmark_commands"] 
@@ -564,7 +588,7 @@ class Tester_Shell:
             self.__system_errors_per_benchmark[benchmark]  = 0
             self.__network_errors_per_benchmark[benchmark] = 0
 
-        self.__validate_attr_on_dict(src)
+        self.__validate_attr_on_dict()
         logging.info("Attributes parsed successfully from dictionary/JSON")
         # Update the attributes of the Tester.
         self.__update()
@@ -606,6 +630,8 @@ class Tester_Shell:
             subclasses must implement the following functions:
                 - __callback_target_power_button (Optional)
                 - __callback_target_reset_button
+
+            @param action
         """
         if self.__debug_disable_resets == True:
             return
@@ -619,13 +645,18 @@ class Tester_Shell:
                 logging.warning("Remote is down..trying to reset")
                 self.__callback_target_reset_button()
                 sleep(self.__boot_timeout_sec)
-                alive = self.__remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
+                alive = self.remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
             logging.info("Booted")
 
         self.__target_set_voltage()
         self.__callback_actions_on_reboot()
 
     def auto_undervolt_characterization(self, nominal_vid_hex: int, undervolt_command: str, duration_per_bench_min: int) -> int:
+        """
+            @param nominal_vid_hex
+            @param undervolt_command
+            @param duration_per_bench_min
+        """
         self.logging.info("Starting undervolting characterization for " + self.__current_benchmark_id)
         vid_steps = 0x0
         timer_start = 0
@@ -637,7 +668,7 @@ class Tester_Shell:
                                  Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 0, True)
 
             for bench in self.__benchmark_list:
-                alive = self.__remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
+                alive = self.remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
                 if not alive:
                     self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS.value)
                     self.__first_boot = True
@@ -714,6 +745,10 @@ class Tester_Shell:
             pass
 
     def set_callback(self, callback_func, callback_id: Tester_Shell_Callback):
+        """
+            @param callback_func 
+            @param callback_id
+        """
         if (not isinstance(callback_id, Tester_Shell_Callback)):
             logging.error("Error cause: " + str(callback_id))
             logging.error("Error message: No such callback exists")
@@ -740,7 +775,7 @@ class Tester_Shell:
 
 def main():
     test = Tester_Shell()
-    test.load_experiment_attr_from_json_file("test.json")
+    test.load_experiment_attr_from_json_file("UltraScalePlusMPsoc.json")
 
     test.target_perform_undervolt_test()
 
