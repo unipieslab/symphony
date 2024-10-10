@@ -11,8 +11,8 @@
     }, 
     "timeouts": {
         "BOOT": 12,
-        "resnet50": 20,
-        "850mV": 50
+        "resnet50": 12,
+        "850mV": 12
     }, 
 
     "voltage_list": ["850mV"],

@@ -91,7 +91,7 @@ class Tester_Shell_Callback(Enum):
     ADDITIONAL_LOGS         = "__callback_additional_logs"
     UPDATE_ALL              = "__callback_update_all"
     ACTIONS_ON_REBOOT       = "__callback_actions_on_reboot"
-    UNDERVOLT_FROMAT        = "__callback_unvervolt_characterization"
+    UNDERVOLT_FROMAT        = "__callback_unvervolt_format"
     UNDERVOLT_VOLTAGE_VALUE = "__callback_undervolt_voltage_value"
 
 class Tester_Batch:
@@ -200,7 +200,7 @@ class Tester_Shell:
         self.__callback_update_all: function              = lambda: None
         self.__callback_actions_on_reboot: function       = lambda: None
         self.__callback_undervolt_voltage_value: function = lambda: str # TODO - returns a string which represent the current voltage value (undervolt characterization specific)
-        self.__callback_unvervolt_format: function        = lambda: str # TODO - returns a string which the next voltage (step), in the right format  (undervolt characterization specific)
+        self.__callback_unvervolt_format: function        = lambda tester: str # TODO - returns a string which the next voltage (step), in the right format  (undervolt characterization specific)
         # Debug flags.
         self.__debug_disable_resets: bool  = False
 
@@ -661,59 +661,62 @@ class Tester_Shell:
         if (len(self.__voltage_list) > 0): self.__target_set_voltage()
         self.__callback_actions_on_reboot()
 
-    def auto_undervolt_characterization(self, nominal_vid_hex: int, undervolt_command: str, duration_per_bench_min: int, characterization_id: str) -> int:
+    def __undervolt_characterization_execute_for_dururation(self, duration_min, bench) -> bool:
+        total_duration_s = 0
+
+        while True:
+            alive = self.remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
+            if not alive:
+                return False
+                    
+            if (total_duration_s / 60 >= duration_min):
+                break
+
+            timer_start = datetime.now()
+                    # Execute the benchmark.
+            if self.__first_boot == True:
+                self.__first_boot = False
+                self.remote_execute(self.__benchmark_commands[bench],
+                                    self.__benchmark_cold_cache_timeout,
+                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
+                                    0, 1, True)
+            else:
+                self.remote_execute(self.__benchmark_commands[bench],
+                                    self.__timeouts[bench],
+                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
+                                    0, 1,True)
+
+            total_duration_s += (datetime.now() - timer_start).seconds
+
+        return True
+
+
+    def auto_undervolt_characterization(self, duration_per_bench_min: int, characterization_id: str) -> int:
         """
-            @param nominal_vid_hex
-            @param undervolt_command
             @param duration_per_bench_min
         """
-        self.logging.warning("Starting undervolting characterization for " + self.__current_benchmark_id)
-        self.logging.warning("Characterization ID: " + characterization_id)
+        logging.warning("Starting undervolting characterization for " + self.__current_benchmark_id)
+        logging.warning("Characterization ID: " + characterization_id)
         #vid_steps = 0x0
         safe_voltage = ""
 
-        timer_start = 0
-        total_duration_s = 0
         while True:
+            logging.info("Currently examined voltage: " + self.__callback_undervolt_voltage_value(self))
             # Configure the voltage.
             #command_to_exec = undervolt_command.format(VID=str(nominal_vid_hex + vid_steps))
             command_to_exec = self.__callback_unvervolt_format() # Retrieve the next command with the user defined step and format
-            self.remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value,
-                                 Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 0, True)
-
+            self.remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value, 
+                                Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, 1, True)
+            
             for bench in self.__benchmark_list:
-                alive = self.remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
-                if not alive:
-                    self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS.value)
-                    self.__first_boot = True
-                    #vid_steps -= 1
+                alive = self.__undervolt_characterization_execute_for_dururation(duration_per_bench_min, bench)
 
+                if not alive:
                     self.logging.info("Found Vsafe: " + safe_voltage)
                     return safe_voltage
-                
-                if (total_duration_s / 60 == duration_per_bench_min):
-                    break
 
-                timer_start = datetime.now()
-                # Execute the benchmark.
-                if self.__first_boot == True:
-                    self.__first_boot = False
-                    self.remote_execute(self.__benchmark_commands[bench],
-                                        self.__benchmark_cold_cache_timeout,
-                                        Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
-                                        0, True)
-                else:
-                    self.remote_execute(self.__benchmark_commands[bench],
-                                        self.__timeouts[bench],
-                                        Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
-                                        0, True)
+            safe_voltage = self.__callback_undervolt_voltage_value(self)
 
-                total_duration_s += (datetime.now() - timer_start).seconds
-
-                safe_voltage = self.__callback_undervolt_voltage_value()
-
-            #vid_steps += 0x1
-            total_duration_s = 0
 
     def experiment_start(self):
         logging.info('Starting... Benchmark: ' + self.__current_benchmark_id)
