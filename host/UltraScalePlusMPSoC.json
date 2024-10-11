@@ -17,7 +17,7 @@
 
     "voltage_list": ["850mV"],
     "benchmark_list": ["resnet50"],
-    "target_ip": "10.30.0.69",
+    "target_ip": "10.30.0.61",
     "target_port": 18864,
     "setup_id": "UltraScalePlusMPSoC_undervolt"
 }

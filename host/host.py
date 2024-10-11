@@ -86,12 +86,12 @@ class Tester_Shell_Callback(Enum):
     DETECT_CACHE_UPSETS     = "__callback_detect_cache_upsets"
     TARGET_RESET_BUTTON     = "__callback_target_reset_button"
     TARGET_POWER_BUTTON     = "__callback_target_power_button"
-    TARGET_IS_NETWORK       = "__callback_target_is_network"
+    TARGET_CLASS_SYSTEM_ERR = "__callback_target_class_system_err"
     DUT_MONITOR             = "__callback_dut_monitor"
     ADDITIONAL_LOGS         = "__callback_additional_logs"
     UPDATE_ALL              = "__callback_update_all"
     ACTIONS_ON_REBOOT       = "__callback_actions_on_reboot"
-    UNDERVOLT_FROMAT        = "__callback_unvervolt_format"
+    UNDERVOLT_FORMAT        = "__callback_unvervolt_format"
     UNDERVOLT_VOLTAGE_VALUE = "__callback_undervolt_voltage_value"
 
 class Tester_Batch:
@@ -194,7 +194,7 @@ class Tester_Shell:
         self.__callback_detect_cache_upsets: function     = lambda dmesg: None
         self.__callback_target_reset_button: function     = lambda: None
         self.__callback_target_power_button: function     = lambda: None
-        self.__callback_target_is_network: function       = lambda: None
+        self.__callback_target_class_system_err: function = lambda addr: None
         self.__callback_dut_monitor: function             = lambda: None
         self.__callback_additional_logs: function         = lambda: None
         self.__callback_update_all: function              = lambda: None
@@ -338,12 +338,12 @@ class Tester_Shell:
         return results
 
     def __clacify_detected_error(self):
-        if (self.__callback_target_is_network() == True):
-            self.__network_errors_per_benchmark[self.__current_benchmark_id] += 1
-            logging.warning("Network error detected.")
-        else:
+        if (self.__callback_target_class_system_err(self.__target_ip) == True):
             self.__system_errors_per_benchmark[self.__current_benchmark_id] += 1
             logging.warning("System error detected.")
+        else:
+            self.__network_errors_per_benchmark[self.__current_benchmark_id] += 1
+            logging.warning("Network error detected.")
 
     def __load_optional_attr_from_dict(self, src: dict):
         """
@@ -453,6 +453,39 @@ class Tester_Shell:
         self.__effective_total_elapsed_min += total_time_passed
         return total_consecutive_errors, batch
 
+    def __undervolt_characterization_execute_for_dururation(self, duration_min, bench) -> bool:
+        """
+            @param duration_min 
+            @param bench
+        """
+        total_duration_s = 0
+
+        while True:
+            alive = self.remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
+            if not alive:
+                return False
+                    
+            if (total_duration_s / 60 >= duration_min):
+                break
+
+            timer_start = datetime.now()
+            # Execute the benchmark.
+            if self.__first_boot == True:
+                self.__first_boot = False
+                self.remote_execute(self.__benchmark_commands[bench],
+                                    self.__benchmark_cold_cache_timeout,
+                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
+                                    0, 1, True)
+            else:
+                self.remote_execute(self.__benchmark_commands[bench],
+                                    self.__timeouts[bench],
+                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
+                                    0, 1,True)
+
+            total_duration_s += (datetime.now() - timer_start).seconds
+
+        return True
+    
     """
         <--- Methods for every implementation --->
     """
@@ -532,6 +565,11 @@ class Tester_Shell:
                 else:
                     logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                 execution_attempt_counter += 1
+
+    def simple_remote_execute(self, cmd: str, times: int, ret_imediate: bool) -> list:
+        return self.remote_execute(cmd, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value, 
+                                   Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 0, times, ret_imediate)
+
 
     def target_set_next_voltage(self) -> bool:
         """
@@ -661,36 +699,6 @@ class Tester_Shell:
         if (len(self.__voltage_list) > 0): self.__target_set_voltage()
         self.__callback_actions_on_reboot()
 
-    def __undervolt_characterization_execute_for_dururation(self, duration_min, bench) -> bool:
-        total_duration_s = 0
-
-        while True:
-            alive = self.remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
-            if not alive:
-                return False
-                    
-            if (total_duration_s / 60 >= duration_min):
-                break
-
-            timer_start = datetime.now()
-                    # Execute the benchmark.
-            if self.__first_boot == True:
-                self.__first_boot = False
-                self.remote_execute(self.__benchmark_commands[bench],
-                                    self.__benchmark_cold_cache_timeout,
-                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
-                                    0, 1, True)
-            else:
-                self.remote_execute(self.__benchmark_commands[bench],
-                                    self.__timeouts[bench],
-                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
-                                    0, 1,True)
-
-            total_duration_s += (datetime.now() - timer_start).seconds
-
-        return True
-
-
     def auto_undervolt_characterization(self, duration_per_bench_min: int, characterization_id: str) -> int:
         """
             @param duration_per_bench_min
@@ -776,7 +784,11 @@ class Tester_Shell:
 
         # Assign the callback function to the coresponded function pointer.
         try:
-            internal_name = "_" + self.__class__.__name__ + callback_id.value
+            base_class = self.__class__
+            while base_class.__base__.__name__ != "object":
+                base_class = base_class.__base__
+
+            internal_name = "_" + base_class.__name__ + callback_id.value
             self.__dict__[internal_name]
         except:
             logging.error("Error cause: " + str(callback_id))
