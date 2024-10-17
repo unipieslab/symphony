@@ -132,10 +132,13 @@ class ExecuteService(rpyc.Service):
         delta = t2 - t1
         duration_ms = str(round(delta.total_seconds() * 1000))
         return_code = str(process.returncode)
-        if return_code != '0':
-            print(stderror)
+
         stderror = process.stderr.decode("utf-8")
         stdoutput = process.stdout.decode("utf-8")
+
+        if return_code != '0':
+            print(stderror)
+            
         return duration_ms, return_code, stderror, stdoutput
 
 if __name__ == '__main__':

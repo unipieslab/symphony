@@ -203,6 +203,7 @@ class Tester_Shell:
         self.__callback_unvervolt_format: function        = lambda tester: str # TODO - returns a string which the next voltage (step), in the right format  (undervolt characterization specific)
         # Debug flags.
         self.__debug_disable_resets: bool  = False
+        self.__debug_disable_state: bool   = False
 
     """
         <--- Private methods --->
@@ -251,8 +252,13 @@ class Tester_Shell:
         return result_file_name
 
     def __target_connect_common(self, excp_timeout_s: int, net_timeout_s: int, ret_imediate: bool) -> rpyc.core.stream.SocketStream:
-        sleep_sec_excep: float = 0.5 
-        conn_count_thresh: int =  int(excp_timeout_s / sleep_sec_excep)
+        sleep_sec_excep: float = 1 
+        #conn_count_thresh: int = int(excp_timeout_s / sleep_sec_excep)
+        
+        remote_down_time_start: time = None # The time that the remote started to not responed 
+        remote_down_elapsed: time = None    # How many seconds the remote is down.
+        remote_down_down_scale = 1.5
+
         attemp_counter: int = 0
         first_error: bool = True
 
@@ -267,19 +273,25 @@ class Tester_Shell:
             
                 return None
             except:
+                if (ret_imediate == True):
+                    return None
+
                 if first_error == True:
                     self.__clacify_detected_error()
+                    remote_down_time_start = time()
+                remote_down_elapsed = time() - remote_down_time_start
                 first_error = False
-                conn_count_thresh -= 1 
+                #conn_count_thresh -= 1 
                 attemp_counter += 1
                 logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 sleep(sleep_sec_excep)
-                if conn_count_thresh <= 0:
-                    if (ret_imediate == True):
-                        return
+                #if conn_count_thresh <= 0 or remote_down_elapsed >= (excp_timeout_s * remote_down_down_scale):
+                if remote_down_elapsed >= (excp_timeout_s * remote_down_down_scale):
                     self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
                     first_error = True
-                    conn_count_thresh = int(net_timeout_s / sleep_sec_excep)
+                    remote_down_time_start = None
+                    attemp_counter = 0
+                    #conn_count_thresh = int(net_timeout_s / sleep_sec_excep)
 
     def __save_results(self, batch: Tester_Batch):
         result_name: str = self.__generate_result_name()
@@ -300,6 +312,8 @@ class Tester_Shell:
             This function preserves the program's current state by transforming the 
             class object into a linear sequence of bytes that can be saved and later loaded.
         """
+        if self.__debug_disable_state: return
+
         filename: str = "state/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
         try:
             with open(filename, "wb") as serialized_instance:
@@ -313,6 +327,8 @@ class Tester_Shell:
             achieves this by reversing the process of the save_state
             function
         """
+        if self.__debug_disable_state: return
+
         filename: str = "state/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
         try:
             with open(filename, "rb") as decirialized_instance:
@@ -514,9 +530,11 @@ class Tester_Shell:
             logging.info('Remote is up')
 
             conn.close()
-            return alive
         except:
             conn.close()
+            alive = False
+
+        return alive
 
     def remote_execute(self, cmd: str, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int, ret_imediate: bool) -> list:
         """
@@ -529,7 +547,7 @@ class Tester_Shell:
         """
         alive = self.remote_alive(self.__boot_timeout_sec, net_timeout_s, ret_imediate)
         if (not alive and ret_imediate == True):
-            return
+            return None
         elif (not alive):
             self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
 
@@ -562,6 +580,7 @@ class Tester_Shell:
                 if execution_attempt_counter > Tester_Shell_Constants.CMD_EXECUTION_ATTEMPT.value:
                     self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
                     first_error = True
+                    execution_attempt_counter = 0
                 else:
                     logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
                 execution_attempt_counter += 1
@@ -661,12 +680,20 @@ class Tester_Shell:
                 self.__current_benchmark_id = self.__benchmark_list[0]
                 voltage_has_next = self.target_set_next_voltage()
 
-    def toggle_resets(self):
+    def debug_toggle_resets(self):
         self.__debug_disable_resets = not self.__debug_disable_resets
         if self.__debug_disable_resets == True:
             logging.warning("Disabling resets")
         else:
             logging.warning("Enable resets")
+
+    def debug_toggle_state_restore(self):
+        self.__debug_disable_state = not self.__debug_disable_state
+        if self.__debug_disable_state == True:
+            logging.warning("Disabling state restores/saves")
+        else:
+            logging.warning("Enable state restore/saves")
+
 
     def power_handler(self, action: Tester_Shell_Power_Action):
         """

@@ -8,13 +8,13 @@ g_current_voltage = 0.850 # Unit: mV
     @param src The voltage value to convert to mantissa (to send on PMBus)
 """
 def convert_to_mantissa(src: int):
-    return math.ceil(src << 12) # src * 4096
-
+    return math.ceil(src * 4096)
+    
 """
     @param src: The mantissa to convert to voltage
 """
 def convert_to_voltage(src: int):
-    return src >> 12 # src / 4096
+    return src / 4096 
 
 def undervolt_format() -> str:
     global g_current_voltage
