@@ -39,7 +39,7 @@ class Tester_Shell_Constants(Enum):
     SOC_THRESHOLD                      =  95.0
     CURRENT_PMD_THRESHOLD_SCALE        =  1.02
     CURRENT_SOC_THRESHOLD_SCALE        =  1.02
-    TIMEOUT_SCALE_BOOT                 =  1.00
+    TIMEOUT_SCALE_BOOT                 =  2.50
     TIMEOUT_SCALE_VOLTAGE              =  1.20
     TIMEOUT_COLD_CACHE_SCALE_BENCHMARK =  4.00
     RESET_AFTER_CONCECUTIVE_ERRORS     =  2.00
@@ -223,7 +223,7 @@ class Tester_Shell:
         logging.getLogger().addHandler(screen_handler)    
 
     def __update(self):
-        self.__timeout_scale_benchmark = 2 * self.__batch_per_benchmark[self.__current_benchmark_id] 
+        self.__timeout_scale_benchmark = 1.5 * self.__batch_per_benchmark[self.__current_benchmark_id] 
         self.__boot_timeout_sec = round(self.__timeouts["BOOT"] * Tester_Shell_Constants.TIMEOUT_SCALE_BOOT.value)
         self.__voltage_config_timeout = round(self.__timeouts[self.__current_voltage_id] * Tester_Shell_Constants.TIMEOUT_SCALE_VOLTAGE.value)
         self.__benchmark_timeout = round(self.__timeout_scale_benchmark * self.__timeouts[self.__current_benchmark_id])
@@ -286,7 +286,7 @@ class Tester_Shell:
                 logging.warning('Remote is down..trying to connect. Attempt: ' + str(attemp_counter))
                 sleep(sleep_sec_excep)
                 #if conn_count_thresh <= 0 or remote_down_elapsed >= (excp_timeout_s * remote_down_down_scale):
-                if remote_down_elapsed >= (excp_timeout_s * remote_down_down_scale):
+                if remote_down_elapsed >= (net_timeout_s * remote_down_down_scale):
                     self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
                     first_error = True
                     remote_down_time_start = None
@@ -414,14 +414,14 @@ class Tester_Shell:
             self.__first_boot = False
             results = self.remote_execute(self.__benchmark_commands[self.__current_benchmark_id], 
                                           self.__benchmark_cold_cache_timeout, 
-                                          Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 1, 1, False)
+                                          Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 1, 1, False)
             
             self.__dmesg_diff = results[0]["dmesg_diff"]
         else:
             self.__dmesg_index += len(self.__dmesg_diff)
             results = self.remote_execute(self.__benchmark_commands[self.__current_benchmark_id], 
                                           self.__benchmark_timeout, 
-                                          Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 
+                                          Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 
                                           self.__dmesg_index, 
                                           self.__batch_per_benchmark[self.__current_benchmark_id], False)
             
@@ -477,7 +477,7 @@ class Tester_Shell:
         total_duration_s = 0
 
         while True:
-            alive = self.remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
+            alive = self.remote_alive(Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
             if not alive:
                 return False
                     
@@ -509,17 +509,15 @@ class Tester_Shell:
         <--- Public methods for every implemetation --->
     """
 
-    def remote_alive(self, boot_timeout_s: int, net_timeout_s: int, ret_imediate: bool) -> bool:
+    def remote_alive(self, net_timeout_s: int, ret_imediate: bool) -> bool:
         """
             This function verifies if the machine running the experiment is 
             connected and functional. It takes two parameters:
 
-            @param boot_timeout_s: This specifies the maximum time (in seconds) the target 
-                                   machine is allowed to take for booting up.
             @param net_timeout_s: This defines a predefined threshold (in seconds) 
                                   for waiting for a network response from the target machine.
         """
-        conn = self.__target_connect_common(boot_timeout_s, net_timeout_s, ret_imediate)
+        conn = self.__target_connect_common(net_timeout_s, net_timeout_s, ret_imediate)
         alive: bool = False
         logging.info('Checking if remote is up')
         if conn == None:
@@ -545,16 +543,19 @@ class Tester_Shell:
             @param times
             @param ret_imediate
         """
-        alive = self.remote_alive(self.__boot_timeout_sec, net_timeout_s, ret_imediate)
+        alive = self.remote_alive(net_timeout_s, ret_imediate)
         if (not alive and ret_imediate == True):
             return None
         elif (not alive):
             self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
 
         execution_attempt_counter = 0
-        first_error = True
 
         while True:
+            if (execution_attempt_counter > 0):
+                logging.warning("Assessing the target's health due to execution failure.")
+                self.__target_connect_common(net_timeout_s, net_timeout_s, False)
+
             conn = self.__target_connect_common(cmd_timeout_s, net_timeout_s, ret_imediate)
             if (conn == None):
                 self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
@@ -573,13 +574,9 @@ class Tester_Shell:
                 return results
 
             except Exception as e:
-                if first_error == True:
-                    self.__clacify_detected_error()
-                first_error = False
                 conn.close()
                 if execution_attempt_counter > Tester_Shell_Constants.CMD_EXECUTION_ATTEMPT.value:
                     self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
-                    first_error = True
                     execution_attempt_counter = 0
                 else:
                     logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
@@ -587,7 +584,7 @@ class Tester_Shell:
 
     def simple_remote_execute(self, cmd: str, times: int, ret_imediate: bool) -> list:
         return self.remote_execute(cmd, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value, 
-                                   Tester_Shell_Constants.NETWORK_TIMEOUT_SEC, 0, times, ret_imediate)
+                                   Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, times, ret_imediate)
 
 
     def target_set_next_voltage(self) -> bool:
@@ -714,12 +711,20 @@ class Tester_Shell:
             self.__callback_target_power_button()
         elif action == Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS:
             alive = False
+            down_time_start: time = None
+            down_time_elapsed: time = None
             while not alive:
                 self.__reset_counter += 1
                 logging.warning("Remote is down..trying to reset")
                 self.__callback_target_reset_button()
-                sleep(self.__boot_timeout_sec)
-                alive = self.remote_alive(self.__boot_timeout_sec, Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
+                logging.warning("Awaiting the DUT to power up")
+                alive = False
+                down_time_start = time()
+                down_time_elapsed = 0
+                while (not alive) and (down_time_elapsed < self.__boot_timeout_sec):
+                    alive = self.remote_alive(Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
+                    down_time_elapsed = time() - down_time_start
+
             logging.info("Booted")
 
         # If the experiment is undervolt related, then restore the voltage after the power cycle.
@@ -824,7 +829,39 @@ class Tester_Shell:
 
         self.__dict__[internal_name] = callback_func
 
-    # TODO - make a function that will calculate the timeouts. (as a helper function)
+    def estimate_timeouts(self):
+        estimate_start: time = None
+        elapsed: time = None
+
+        estimate_start = time()
+        logging.warning("Estimate the boot time")
+        self.__callback_target_reset_button()
+        while not self.remote_alive(Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True):
+            pass
+        elapsed = time() - estimate_start
+
+        logging.warning("BOOT TIMEOUT=" + str(math.ceil(elapsed - Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value)))
+
+        logging.warning("Estimate the benchmark execution time.")
+        next = True
+        while next:
+            logging.warning("BENCHMARK=" + self.__current_benchmark_id)
+            estimate_start = time()
+            self.simple_remote_execute(self.__benchmark_commands[self.__current_benchmark_id], 1, True)
+            elapsed = time() - estimate_start
+            next = self.target_set_next_benchmark()
+            logging.warning("TIMEOUT=" + str(math.ceil(elapsed - Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value)))
+
+        if len(self.__voltage_list) > 0:
+            logging.warning("Estimate the benchmark execution time.")
+            next = True
+            while next:
+                logging.warning("VOLTAGE:" + self.__current_voltage_id)
+                estimate_start = time()
+                self.simple_remote_execute(self.__voltage_commands[self.__current_voltage_id], 1, True)
+                elapsed = time() - estimate_start
+                next = self.target_set_next_voltage()
+                logging.warning("TIMEOUT=" + str(math.ceil(elapsed - Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value)))
 
     @property
     def current_benchmark_id(self) -> str:
