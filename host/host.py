@@ -142,52 +142,52 @@ class Tester_Shell:
 
         # Counters
         self.__power_cycle_counter: int = 0
-        self.__reset_counter: int = 0
-        self.__run_counter: int = 0
-        self.__sdc_counter: int = 0 
-        self.__total_errors: int = 0
+        self.__reset_counter: int       = 0
+        self.__run_counter: int         = 0
+        self.__sdc_counter: int         = 0 
+        self.__total_errors: int        = 0
 
         # Important dictionaries
-        self.__voltage_commands: dict = {}
+        self.__voltage_commands: dict   = {}
         self.__benchmark_commands: dict = {} 
         self.__timeouts: dict = {}
-        self.__system_errors_per_benchmark: dict = {} 
+        self.__system_errors_per_benchmark: dict  = {} 
         self.__network_errors_per_benchmark: dict = {}
         self.__batch_per_benchmark: dict = {}
         self.__effective_time_per_batch_s: float = Tester_Shell_Constants.EFFECTIVE_SEC_PER_BATCH.value
         # Important lists
-        self.__voltage_list: list = []
+        self.__voltage_list: list   = []
         self.__benchmark_list: list = []
 
         # Target related
-        self.__target_ip: str = ""
+        self.__target_ip: str   = ""
         self.__target_port: str = ""
         
         self.__first_boot: bool = True
         self.__dmesg_index: int = 0
-        self.__dmesg_diff: str = ""
+        self.__dmesg_diff: str  = ""
 
         # Run related
         self.__current_benchmark_id: str = ""
-        self.__current_voltage_id: str = ""
-        self.__setup_id: str = ""
+        self.__current_voltage_id: str   = ""
+        self.__setup_id: str             = ""
 
         self.__finish_after_total_effective_min: float = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_EFFECTIVE_MINUTES.value
         self.__finish_after_total_errors: float = Tester_Shell_Defaults.FINISH_AFTER_TOTAL_ERRORS.value
 
         self.__effective_total_elapsed_min: float = 0
-        self.__experiment_total_elapsed_s: float = 0.1
+        self.__experiment_total_elapsed_s: float  = 0.1
 
         self.__experiment_start_time: time = time()
 
         # Scales
-        self.__timeout_scale_benchmark: float = 0
+        self.__timeout_scale_benchmark: float      = 0
         self.__benchmark_cold_cache_timeout: float = 0
 
         # timeouts
-        self.__boot_timeout_sec: float = 0
+        self.__boot_timeout_sec: float       = 0
         self.__voltage_config_timeout: float = 0
-        self.__benchmark_timeout: float = 0
+        self.__benchmark_timeout: float      = 0
 
         # Callbacks to be implemented
         self.__callback_is_result_correct: function       = lambda result: None
@@ -202,8 +202,8 @@ class Tester_Shell:
         self.__callback_undervolt_voltage_value: function = lambda: str # TODO - returns a string which represent the current voltage value (undervolt characterization specific)
         self.__callback_unvervolt_format: function        = lambda tester: str # TODO - returns a string which the next voltage (step), in the right format  (undervolt characterization specific)
         # Debug flags.
-        self.__debug_disable_resets: bool  = False
-        self.__debug_disable_state: bool   = False
+        self.__debug_disable_resets: bool = False
+        self.__debug_disable_state: bool  = False
 
     """
         <--- Private methods --->
@@ -405,7 +405,7 @@ class Tester_Shell:
             logging.error("Incomplete value: " + str(e.args[0]) + " -> Dictionary/JSON")
             logging.error("Ensure the incomplete value is present in the relevant lists and dictionaries.")
             exit(0)        
-    
+
     def __experiment_execute_benchmark(self) -> list:
         results: list = []
         last_executed_bench: int = 0
@@ -586,7 +586,6 @@ class Tester_Shell:
         return self.remote_execute(cmd, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value, 
                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, times, ret_imediate)
 
-
     def target_set_next_voltage(self) -> bool:
         """
         """
@@ -691,7 +690,6 @@ class Tester_Shell:
         else:
             logging.warning("Enable state restore/saves")
 
-
     def power_handler(self, action: Tester_Shell_Power_Action):
         """
             This function uses an abstract methodology to achieve power and reset button 
@@ -709,6 +707,8 @@ class Tester_Shell:
 
         if action == Tester_Shell_Power_Action.TARGET_POWER_BTN_PRESS:
             self.__callback_target_power_button()
+            return
+
         elif action == Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS:
             alive = False
             down_time_start: time = None
@@ -719,8 +719,10 @@ class Tester_Shell:
                 self.__callback_target_reset_button()
                 logging.warning("Awaiting the DUT to power up")
                 alive = False
+
                 down_time_start = time()
                 down_time_elapsed = 0
+
                 while (not alive) and (down_time_elapsed < self.__boot_timeout_sec):
                     alive = self.remote_alive(Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
                     down_time_elapsed = time() - down_time_start
@@ -756,7 +758,6 @@ class Tester_Shell:
                     return safe_voltage
 
             safe_voltage = self.__callback_undervolt_voltage_value(self)
-
 
     def experiment_start(self):
         logging.info('Starting... Benchmark: ' + self.__current_benchmark_id)
@@ -870,4 +871,3 @@ class Tester_Shell:
     @property
     def current_voltage_id(self) -> str:
         return self.__current_voltage_id
-

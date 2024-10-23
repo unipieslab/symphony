@@ -4,7 +4,9 @@
     "finish_after_total_errors": null,
 
     "voltage_commands": {
-        "850mV": "i2cset -y -f 0 0x13 0x21 0x0d99 w"
+        "850mV": "i2cset -y -f 0 0x13 0x21 0x0d99 w",
+        "610mV": "i2cset -y -f 0 0x13 0x21 0x09c3 w",
+        "609mV": "i2cset -y -f 0 0x13 0x21 0x09bf"
     },
     "benchmark_commands": {
         "resnet50": "LD_LIBRARY_PATH=/home/root/app/samples/lib /home/root/app/samples/bin/resnet50_up /home/root/app/img/bellpeppe-994958.JPEG /home/root/app/resnet50.xmodel"
