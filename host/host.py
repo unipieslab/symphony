@@ -406,6 +406,20 @@ class Tester_Shell:
             logging.error("Ensure the incomplete value is present in the relevant lists and dictionaries.")
             exit(0)        
 
+        for vid in self.__voltage_commands.keys():
+            if (vid not in self.__voltage_list or vid not in self.__timeouts):
+                logging.error("The data on Dictionary/JSON is incomplete")
+                logging.error("Incomplete value: " + vid + " -> Dictionary/JSON")
+                logging.error("Ensure the incomplete value is present in the relevant lists and dictionaries.")
+                exit(0)        
+    
+        for bid in self.__benchmark_commands.keys():
+            if (bid not in self.__benchmark_list or bid not in self.__timeouts):
+                logging.error("The data on Dictionary/JSON is incomplete")
+                logging.error("Incomplete value: " + bid + " -> Dictionary/JSON")
+                logging.error("Ensure the incomplete value is present in the relevant lists and dictionaries.")
+                exit(0)        
+
     def __experiment_execute_benchmark(self) -> list:
         results: list = []
         last_executed_bench: int = 0
@@ -800,6 +814,8 @@ class Tester_Shell:
 
                 if ((self.__effective_total_elapsed_min > self.__finish_after_total_effective_min) \
                     or (self.__total_errors > self.__finish_after_total_errors)):
+                    self.__effective_total_elapsed_min = 0
+                    self.__finish_after_total_errors = 0
                     break
         except Exception:
             logging.warning(traceback.format_exc())
