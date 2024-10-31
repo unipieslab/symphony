@@ -195,8 +195,8 @@ class Tester_Shell:
         self.__callback_target_reset_button: function     = lambda: None
         self.__callback_target_power_button: function     = lambda: None
         self.__callback_target_class_system_err: function = lambda addr: None
-        self.__callback_dut_monitor: function             = lambda: None
-        self.__callback_additional_logs: function         = lambda: None
+        self.__callback_dut_monitor: function             = lambda healthlog: None
+        self.__callback_additional_logs: function         = lambda: str
         self.__callback_update_all: function              = lambda: None
         self.__callback_actions_on_reboot: function       = lambda: None
         self.__callback_undervolt_voltage_value: function = lambda: str # TODO - returns a string which represent the current voltage value (undervolt characterization specific)
@@ -461,6 +461,7 @@ class Tester_Shell:
             curr_result_correct = self.__callback_is_result_correct(result)
 
             self.__callback_detect_cache_upsets(result["dmesg_diff"])
+            self.__callback_dut_monitor(result["healthlog"])
 
             if (curr_result_correct == False):
                 logging.error("Result SDC detected")
@@ -478,7 +479,6 @@ class Tester_Shell:
                     + result["timestamp"]
 
             logging.info(log_str)
-            self.__callback_dut_monitor()
 
         self.__effective_total_elapsed_min += total_time_passed
         return total_consecutive_errors, batch
@@ -799,7 +799,8 @@ class Tester_Shell:
                                  " | SDCs: "+ str(self.__sdc_counter)
                 logging.info(log_errors_str)
 
-                self.__callback_additional_logs()
+                additional_logs = self.__callback_additional_logs()
+                logging.info(additional_logs)
 
                 experiment_elapsed_sec_str = str(timedelta(seconds=self.__experiment_total_elapsed_s))
                 logging.info("Total elapsed: "+ experiment_elapsed_sec_str + \

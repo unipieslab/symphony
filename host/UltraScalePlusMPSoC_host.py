@@ -3,9 +3,6 @@ import re
 import serial
 import time
 
-class UltraScalePlusMPSoC_Tester(Tester_Shell):
-    pass
-
 class Relay_Controller():
     # Initialize the controller
     # @param dev The device of the UART module.
@@ -20,26 +17,45 @@ class Relay_Controller():
         time.sleep(1)
         self.ser.setRTS(False)
 
-def is_result_correct(result: dict):
-    pass
+class UltraScalePlusMPSoC_Tester(Tester_Shell):
+    def __init__(self):
+        super().__init__()
 
-def target_reset_button():
-    controller = Relay_Controller("ttyUSB4")
-    controller.reset_computer()
+        self.pl_temp = 0
+        self.ps_temp = 0
 
-def target_class_system_err(addr: str):
-    return None # TODO - Find a way to examine if the PL is down (or the whole system)
+    def is_result_correct(self, result: dict):
+        pass
 
+    def target_reset_button(self):
+        controller = Relay_Controller("ttyUSB0")
+        controller.reset_computer()
+
+    def target_class_system_err(self, addr: str):
+        return None # TODO - Find a way to examine if the PL is down (or the whole system)
+
+    def dut_monitor(self, healthlog: str):
+        pl_temp_regex = "PL TEMP: (\d+.*)"
+        ps_temp_regex = "PS TEMP: (\d+.*)"
+
+        self.pl_temp = round(float(re.search(pl_temp_regex, healthlog).group(1)), 2)
+        self.ps_temp = round(float(re.search(ps_temp_regex, healthlog).group(1)), 2)
+
+    def additional_logs(self) -> str:
+        return "PL Temp: " + str(self.pl_temp) + "(C) | PS Temp: " + str(self.ps_temp) + "(C)"
 
 def main():
     test = UltraScalePlusMPSoC_Tester()
     test.load_experiment_attr_from_json_file("UltraScalePlusMPSoC.json")
 
     test.debug_toggle_state_restore()
+    test.debug_toggle_resets()
 
-    test.set_callback(is_result_correct, Tester_Shell_Callback.IS_RESULT_CORRECT)
-    test.set_callback(target_reset_button, Tester_Shell_Callback.TARGET_RESET_BUTTON)
-    test.set_callback(target_class_system_err, Tester_Shell_Callback.TARGET_CLASS_SYSTEM_ERR)
+    test.set_callback(test.is_result_correct, Tester_Shell_Callback.IS_RESULT_CORRECT)
+    test.set_callback(test.target_reset_button, Tester_Shell_Callback.TARGET_RESET_BUTTON)
+    test.set_callback(test.target_class_system_err, Tester_Shell_Callback.TARGET_CLASS_SYSTEM_ERR)
+    test.set_callback(test.additional_logs, Tester_Shell_Callback.ADDITIONAL_LOGS)
+    test.set_callback(test.dut_monitor, Tester_Shell_Callback.DUT_MONITOR)
 
     try:
         test.target_perform_undervolt_test()
