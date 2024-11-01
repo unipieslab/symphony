@@ -9,17 +9,44 @@
         "609mV": "i2cset -y -f 0 0x13 0x21 0x09bf"
     },
     "benchmark_commands": {
-        "resnet50": "LD_LIBRARY_PATH=/home/root/app/samples/lib /home/root/app/samples/bin/resnet50_up /home/root/app/img/bellpeppe-994958.JPEG /home/root/app/resnet50.xmodel"
-    }, 
+        "RefineDet-Medical": "/home/root/benchmarks/stress_execute/RefineDet_Medical_execute.sh",
+        "RefineDet-Medical_pruned_0_5": "/home/root/benchmarks/stress_execute/RefineDet_Medical_pruned_0_5_execute.sh",
+        "RefineDet-Medical_pruned_0_88": "/home/root/benchmarks/stress_execute/RefineDet_Medical_pruned_0_88_execute.sh",
+        "Resnet50": "/home/root/benchmarks/stress_execute/Resnet50_execute.sh",
+        "Resnet50_pruned_0_3": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute.sh",
+        "Resnet50_pruned_0_6": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_6_execute.sh",
+        "OFA_Yolo": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute.sh",
+        "OFA_Yolo_pruned_0_30": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute.sh",
+        "OFA_Yolo_pruned_0_50": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute.sh",
+        "VGG_16": "/home/root/benchmarks/stress_execute/VGG_16_execute.sh",
+        "VGG_16_pruned_0_43": "/home/root/benchmarks/stress_execute/VGG_16_pruned_0_43_execute.sh",
+        "VGG_16_pruned_0_5": "/home/root/benchmarks/stress_execute/VGG_16_pruned_0_5_execute.sh"
+    },
+    
     "timeouts": {
         "BOOT": 12,
-        "resnet50": 12,
-        "850mV": 12
-    }, 
+        "850mV": 12,
+        "610mV": 12,
+        "609mV": 12,
+        "RefineDet-Medical": 2,
+        "RefineDet-Medical_pruned_0_5": 2,
+        "RefineDet-Medical_pruned_0_88": 2,
+        "Resnet50": 2,
+        "Resnet50_pruned_0_3": 2,
+        "Resnet50_pruned_0_6": 2,
+        "OFA_Yolo": 2,
+        "OFA_Yolo_pruned_0_30": 2,
+        "OFA_Yolo_pruned_0_50": 2,
+        "VGG_16": 3,
+        "VGG_16_pruned_0_43": 3,
+        "VGG_16_pruned_0_5": 3
 
-    "voltage_list": ["850mV"],
-    "benchmark_list": ["resnet50"],
-    "target_ip": "10.30.0.61",
-    "target_port": 18864,
-    "setup_id": "UltraScalePlusMPSoC_undervolt"
+    }, 
+    "voltage_list": ["850mV", "610mV", "609mV"],
+    "benchmark_list": ["RefineDet-Medical", "RefineDet-Medical_pruned_0_5", "RefineDet-Medical_pruned_0_88", 
+                       "Resnet50", "Resnet50_pruned_0_3", "Resnet50_pruned_0_6", "OFA_Yolo", "OFA_Yolo_pruned_0_30",
+                       "OFA_Yolo_pruned_0_50", "VGG_16", "VGG_16_pruned_0_43", "VGG_16_pruned_0_5"],
+    "target_ip": "10.30.0.56",
+    "target_port": 18861,
+    "setup_id": "UltraScalePlusMPSoC_undervolt_pruned"
 }

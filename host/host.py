@@ -761,7 +761,7 @@ class Tester_Shell:
         safe_voltage = ""
 
         while True:
-            logging.info("Currently examined voltage: " + self.__callback_undervolt_voltage_value(self))
+            logging.warning("Currently examined voltage: " + self.__callback_undervolt_voltage_value(self))
             # Configure the voltage.
             #command_to_exec = undervolt_command.format(VID=str(nominal_vid_hex + vid_steps))
             command_to_exec = self.__callback_unvervolt_format() # Retrieve the next command with the user defined step and format
@@ -769,6 +769,7 @@ class Tester_Shell:
                                 Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, 1, True)
             
             for bench in self.__benchmark_list:
+                logging.warning("Currently examined benchmark: " + bench)
                 alive = self.__undervolt_characterization_execute_for_dururation(duration_per_bench_min, bench)
 
                 if not alive:
