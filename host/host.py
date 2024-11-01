@@ -225,9 +225,11 @@ class Tester_Shell:
     def __update(self):
         self.__timeout_scale_benchmark = 1.5 * self.__batch_per_benchmark[self.__current_benchmark_id] 
         self.__boot_timeout_sec = round(self.__timeouts["BOOT"] * Tester_Shell_Constants.TIMEOUT_SCALE_BOOT.value)
-        self.__voltage_config_timeout = round(self.__timeouts[self.__current_voltage_id] * Tester_Shell_Constants.TIMEOUT_SCALE_VOLTAGE.value)
         self.__benchmark_timeout = round(self.__timeout_scale_benchmark * self.__timeouts[self.__current_benchmark_id])
         self.__benchmark_cold_cache_timeout = round(self.__timeouts[self.__current_benchmark_id] * Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value)
+
+        if (len(self.__voltage_list) > 0):
+            self.__voltage_config_timeout = round(self.__timeouts[self.__current_voltage_id] * Tester_Shell_Constants.TIMEOUT_SCALE_VOLTAGE.value)
 
         #self.__target_set_voltage() Redundunt. See functions: ~ reset_state ~ and ~ power_handler ~.
         self.__callback_update_all()
@@ -651,7 +653,9 @@ class Tester_Shell:
 
         # Set initial benchmark and voltage ids.
         self.__current_benchmark_id = self.__benchmark_list[0]
-        self.__current_voltage_id   = self.__voltage_list[0]
+        
+        if (len(self.__voltage_list) > 0):
+            self.__current_voltage_id   = self.__voltage_list[0]
 
         logging.warning("Setting CURRENT_BENCHMARK_ID = " + self.__current_benchmark_id)
         logging.warning("Setting CURRENT_VOLTAGE_ID = " + self.__current_voltage_id)

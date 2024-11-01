@@ -38,7 +38,7 @@ def get_voltage(src: Tester_Shell) -> str:
 
 def main():
     test = Tester_Shell()
-    test.load_experiment_attr_from_json_file("UltraScalePlusMPSoC.json")
+    test.load_experiment_attr_from_json_file("UltraScalePlusMPSoC_undervolt_characterization.json")
 
     # Set the neccessery callbacks.
     test.set_callback(undervolt_format, Tester_Shell_Callback.UNDERVOLT_FORMAT)

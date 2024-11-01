@@ -1,0 +1,45 @@
+{
+    "effective_time_per_batch_s": 10,
+    "finish_after_total_effective_min": 1,
+    "finish_after_total_errors": null,
+
+    "voltage_commands": {
+    },
+    "benchmark_commands": {
+        "RefineDet-Medical": "/home/root/benchmarks/stress_execute/RefineDet_Medical_execute_1000.sh",
+        "RefineDet-Medical_pruned_0_5": "/home/root/benchmarks/stress_execute/RefineDet_Medical_pruned_0_5_execute_1000.sh",
+        "RefineDet-Medical_pruned_0_88": "/home/root/benchmarks/stress_execute/RefineDet_Medical_pruned_0_88_execute_1000.sh",
+        "Resnet50": "/home/root/benchmarks/stress_execute/Resnet50_execute_1000.sh",
+        "Resnet50_pruned_0_3": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute_1000.sh",
+        "Resnet50_pruned_0_6": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_6_execute_1000.sh",
+        "OFA_Yolo": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute_1000.sh",
+        "OFA_Yolo_pruned_0_30": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute_1000.sh",
+        "OFA_Yolo_pruned_0_50": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute_1000.sh",
+        "VGG_16": "/home/root/benchmarks/stress_execute/VGG_16_execute_1000.sh",
+        "VGG_16_pruned_0_43": "/home/root/benchmarks/stress_execute/VGG_16_pruned_0_43_execute_1000.sh",
+        "VGG_16_pruned_0_5": "/home/root/benchmarks/stress_execute/VGG_16_pruned_0_5_execute_1000.sh"
+    }, 
+    "timeouts": {
+        "BOOT": 26,
+        "RefineDet-Medical": 60,
+        "RefineDet-Medical_pruned_0_5": 60,
+        "RefineDet-Medical_pruned_0_88": 60,
+        "Resnet50": 60,
+        "Resnet50_pruned_0_3": 60,
+        "Resnet50_pruned_0_6": 60,
+        "OFA_Yolo": 60,
+        "OFA_Yolo_pruned_0_30": 60,
+        "OFA_Yolo_pruned_0_50": 60,
+        "VGG_16": 60,
+        "VGG_16_pruned_0_43": 60,
+        "VGG_16_pruned_0_5": 60
+    }, 
+
+    "voltage_list": [],
+    "benchmark_list": ["RefineDet-Medical", "RefineDet-Medical_pruned_0_5", "RefineDet-Medical_pruned_0_88", 
+                       "Resnet50", "Resnet50_pruned_0_3", "Resnet50_pruned_0_6", "OFA_Yolo", "OFA_Yolo_pruned_0_30",
+                       "OFA_Yolo_pruned_0_50", "VGG_16", "VGG_16_pruned_0_43", "VGG_16_pruned_0_5"],
+    "target_ip": "10.30.0.56",
+    "target_port": 18861,
+    "setup_id": "UltraScalePlusMPSoC_undervolt_characterization_pruned"
+}
