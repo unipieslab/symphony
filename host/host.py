@@ -492,10 +492,9 @@ class Tester_Shell:
         self.__effective_total_elapsed_min += total_time_passed
         return total_consecutive_errors, batch
 
-    def __undervolt_characterization_execute_for_dururation(self, duration_min, bench) -> bool:
+    def __undervolt_characterization_execute_for_dururation(self, duration_min) -> bool:
         """
             @param duration_min 
-            @param bench
         """
         total_duration_s = 0
 
@@ -767,14 +766,16 @@ class Tester_Shell:
 
             logging.warning("Currently examined voltage: " + self.__callback_request_voltage_value(self))
             
-            for bench in self.__benchmark_list:
-                logging.warning("Currently examined benchmark: " + bench)
-                failure = self.__undervolt_characterization_execute_for_dururation(duration_per_bench_min, bench)
+            while True:
+                logging.warning("Currently examined benchmark: " + self.__current_benchmark_id)
+                failure = self.__undervolt_characterization_execute_for_dururation(duration_per_bench_min)
 
                 if not failure:
                     logging.info("Found Vsafe: " + safe_voltage)
                     logging.info("Vcrash: " + self.__callback_request_voltage_value(self))
                     return safe_voltage
+
+                if (self.target_set_next_benchmark() == False): break
 
             safe_voltage = self.__callback_request_voltage_value(self)
 
