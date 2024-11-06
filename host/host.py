@@ -92,7 +92,7 @@ class Tester_Shell_Callback(Enum):
     UPDATE_ALL              = "__callback_update_all"
     ACTIONS_ON_REBOOT       = "__callback_actions_on_reboot"
     UNDERVOLT_FORMAT        = "__callback_unvervolt_format"
-    UNDERVOLT_VOLTAGE_VALUE = "__callback_undervolt_voltage_value"
+    REQUEST_VOLTAGE_VALUE   = "__callback_request_voltage_value"
 
 class Tester_Batch:
     def __init__(self):
@@ -199,7 +199,7 @@ class Tester_Shell:
         self.__callback_additional_logs: function         = lambda: str
         self.__callback_update_all: function              = lambda: None
         self.__callback_actions_on_reboot: function       = lambda: None
-        self.__callback_undervolt_voltage_value: function = lambda: str # TODO - returns a string which represent the current voltage value (undervolt characterization specific)
+        self.__callback_request_voltage_value: function   = lambda: str # TODO - returns a string which represent the current voltage value (undervolt characterization specific)
         self.__callback_unvervolt_format: function        = lambda tester: str # TODO - returns a string which the next voltage (step), in the right format  (undervolt characterization specific)
         # Debug flags.
         self.__debug_disable_resets: bool = False
@@ -459,6 +459,8 @@ class Tester_Shell:
         for result in src:
             self.__run_counter += 1
 
+            if (len(self.__voltage_list) > 0):
+                result["voltage_value"] = self.__callback_request_voltage_value
             total_time_passed += (float(result["duration_ms"])/1000)/60  
             curr_result_correct = self.__callback_is_result_correct(result)
 
@@ -493,26 +495,34 @@ class Tester_Shell:
         total_duration_s = 0
 
         while True:
-            alive = self.remote_alive(Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
-            if not alive:
-                return False
+            # alive = self.remote_alive(Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
+            # if not alive:
+            #     return False
                     
             if (total_duration_s / 60 >= duration_min):
                 break
 
             timer_start = datetime.now()
-            # Execute the benchmark.
-            if self.__first_boot == True:
-                self.__first_boot = False
-                self.remote_execute(self.__benchmark_commands[bench],
-                                    self.__benchmark_cold_cache_timeout,
-                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
-                                    0, 1, True)
-            else:
-                self.remote_execute(self.__benchmark_commands[bench],
-                                    self.__timeouts[bench],
-                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
-                                    0, 1,True)
+            # # Execute the benchmark.
+            # if self.__first_boot == True:
+            #     self.__first_boot = False
+            #     self.remote_execute(self.__benchmark_commands[bench],
+            #                         self.__benchmark_cold_cache_timeout,
+            #                         Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
+            #                         0, 1, True)
+            # else:
+            #     self.remote_execute(self.__benchmark_commands[bench],
+            #                         self.__timeouts[bench],
+            #                         Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
+            #                         0, 1,True)
+
+
+            results = self.__experiment_execute_benchmark()
+            total_errors, curr_batch = self.__experiment_execute_actions_for_each_result(results)
+
+            self.__save_results(curr_batch)
+            if (total_errors > 0): 
+                return True
 
             total_duration_s += (datetime.now() - timer_start).seconds
 
@@ -569,7 +579,7 @@ class Tester_Shell:
 
         while True:
             if (execution_attempt_counter > 0):
-                logging.warning("Assessing the target's health due to execution failure.")
+                logging.warning("Assessing the target's health due to communication failure.")
                 self.__target_connect_common(net_timeout_s, net_timeout_s, False)
 
             conn = self.__target_connect_common(cmd_timeout_s, net_timeout_s, ret_imediate)
@@ -656,9 +666,9 @@ class Tester_Shell:
         
         if (len(self.__voltage_list) > 0):
             self.__current_voltage_id   = self.__voltage_list[0]
+            logging.warning("Setting CURRENT_VOLTAGE_ID = " + self.__current_voltage_id)
 
         logging.warning("Setting CURRENT_BENCHMARK_ID = " + self.__current_benchmark_id)
-        logging.warning("Setting CURRENT_VOLTAGE_ID = " + self.__current_voltage_id)
 
         # Calculate the number of runs per batch for each benchmark.
         # And initialize the system/network errors per benchmark
@@ -755,28 +765,30 @@ class Tester_Shell:
         """
             @param duration_per_bench_min
         """
+        self.debug_toggle_resets()
         logging.warning("Starting undervolting characterization for " + self.__current_benchmark_id)
         logging.warning("Characterization ID: " + characterization_id)
         #vid_steps = 0x0
         safe_voltage = ""
 
         while True:
-            logging.warning("Currently examined voltage: " + self.__callback_undervolt_voltage_value(self))
-            # Configure the voltage.
-            #command_to_exec = undervolt_command.format(VID=str(nominal_vid_hex + vid_steps))
             command_to_exec = self.__callback_unvervolt_format() # Retrieve the next command with the user defined step and format
             self.remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value, 
-                                Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, 1, True)
+                                Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, 1, False)
+
+            logging.warning("Currently examined voltage: " + self.__callback_request_voltage_value(self))
+            # Configure the voltage.
+            #command_to_exec = undervolt_command.format(VID=str(nominal_vid_hex + vid_steps))
             
             for bench in self.__benchmark_list:
                 logging.warning("Currently examined benchmark: " + bench)
                 alive = self.__undervolt_characterization_execute_for_dururation(duration_per_bench_min, bench)
 
                 if not alive:
-                    self.logging.info("Found Vsafe: " + safe_voltage)
+                    logging.info("Found Vsafe: " + safe_voltage)
                     return safe_voltage
 
-            safe_voltage = self.__callback_undervolt_voltage_value(self)
+            safe_voltage = self.__callback_request_voltage_value(self)
 
     def experiment_start(self):
         logging.info('Starting... Benchmark: ' + self.__current_benchmark_id)

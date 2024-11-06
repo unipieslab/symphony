@@ -6,7 +6,7 @@
     "voltage_commands": {
         "850mV": "i2cset -y -f 0 0x13 0x21 0x0d99 w",
         "610mV": "i2cset -y -f 0 0x13 0x21 0x09c3 w",
-        "609mV": "i2cset -y -f 0 0x13 0x21 0x09bf"
+        "609mV": "i2cset -y -f 0 0x13 0x21 0x09bf w"
     },
     "benchmark_commands": {
         "RefineDet-Medical": "/home/root/benchmarks/stress_execute/RefineDet_Medical_execute.sh",
