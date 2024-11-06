@@ -194,6 +194,8 @@ class Tester_Shell:
         self.__voltage_config_timeout: float = 0
         self.__benchmark_timeout: float      = 0
 
+        self.__ready_to_clacify_error = True # Is used to not clacify the same error more than once.
+
         # Callbacks to be implemented
         self.__callback_is_result_correct: function       = lambda result: None
         self.__callback_detect_cache_upsets: function     = lambda dmesg: None
@@ -283,7 +285,8 @@ class Tester_Shell:
                 if (ret_imediate == True):
                     return None
 
-                if first_error == True:
+                if first_error == True and self.__ready_to_clacify_error:
+                    self.__ready_to_clacify_error = False
                     self.__clacify_detected_error()
                     remote_down_time_start = time()
                 remote_down_elapsed = time() - remote_down_time_start
@@ -367,6 +370,8 @@ class Tester_Shell:
         else:
             self.__network_errors_per_benchmark[self.__current_benchmark_id] += 1
             logging.warning("Network error detected.")
+
+        self.__ready_to_clacify_error = True # The current error is clacified, not be ready to clacify the next.
 
     def __load_optional_attr_from_dict(self, src: dict):
         """
@@ -753,6 +758,9 @@ class Tester_Shell:
         """
             @param duration_per_bench_min
         """
+        logging.warning("Trying to restore to the previous state, please make sure that\
+                        the previously saved state was related to undervolt characterization and not from the experiment.")
+        self.__restore_state()
         self.debug_toggle_resets()
         logging.warning("Starting undervolting characterization for " + self.__current_benchmark_id)
         logging.warning("Characterization ID: " + characterization_id)
@@ -775,6 +783,7 @@ class Tester_Shell:
                     logging.info("Vcrash: " + self.__callback_request_voltage_value(self))
                     return safe_voltage
 
+                self.__save_state()
                 if (self.target_set_next_benchmark() == False): break
 
             safe_voltage = self.__callback_request_voltage_value(self)
