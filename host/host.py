@@ -49,6 +49,7 @@ class Tester_Shell_Constants(Enum):
     CMD_EXECUTION_ATTEMPT              =  1.00
     UNDERVOLT_POSITIVE_STEP            =  1.00
     UNDERVOLT_NEGATIVE_STEP            = -1.00
+    TIMEOUT_SIMPLE_EXECUTION           =  60
 
 class Tester_Shell_Defaults(Enum):
     """
@@ -86,13 +87,17 @@ class Tester_Shell_Callback(Enum):
     DETECT_CACHE_UPSETS     = "__callback_detect_cache_upsets"
     TARGET_RESET_BUTTON     = "__callback_target_reset_button"
     TARGET_POWER_BUTTON     = "__callback_target_power_button"
-    TARGET_CLASS_SYSTEM_ERR = "__callback_target_class_system_err"
     DUT_MONITOR             = "__callback_dut_monitor"
     ADDITIONAL_LOGS         = "__callback_additional_logs"
     UPDATE_ALL              = "__callback_update_all"
     ACTIONS_ON_REBOOT       = "__callback_actions_on_reboot"
     UNDERVOLT_FORMAT        = "__callback_unvervolt_format"
     REQUEST_VOLTAGE_VALUE   = "__callback_request_voltage_value"
+    DUT_HEALTH_CHECK        = "__callback_dut_health_check"
+
+class Tester_Shell_Health_Status(Enum):
+    HEALTHY = 0
+    DAMAGED = 1
 
 class Tester_Batch:
     def __init__(self):
@@ -194,13 +199,13 @@ class Tester_Shell:
         self.__callback_detect_cache_upsets: function     = lambda dmesg: None
         self.__callback_target_reset_button: function     = lambda: None
         self.__callback_target_power_button: function     = lambda: None
-        self.__callback_target_class_system_err: function = lambda addr: None
         self.__callback_dut_monitor: function             = lambda healthlog: None
         self.__callback_additional_logs: function         = lambda: str
         self.__callback_update_all: function              = lambda: None
         self.__callback_actions_on_reboot: function       = lambda: None
         self.__callback_request_voltage_value: function   = lambda: str # TODO - returns a string which represent the current voltage value (undervolt characterization specific)
         self.__callback_unvervolt_format: function        = lambda tester: str # TODO - returns a string which the next voltage (step), in the right format  (undervolt characterization specific)
+        self.__callback_dut_health_check: function        = lambda tester: Tester_Shell_Health_Status
         # Debug flags.
         self.__debug_disable_resets: bool = False
         self.__debug_disable_state: bool  = False
@@ -356,7 +361,7 @@ class Tester_Shell:
         return results
 
     def __clacify_detected_error(self):
-        if (self.__callback_target_class_system_err(self.__target_ip) == True):
+        if (self.__callback_dut_health_check(self) == Tester_Shell_Health_Status.DAMAGED):
             self.__system_errors_per_benchmark[self.__current_benchmark_id] += 1
             logging.warning("System error detected.")
         else:
@@ -459,15 +464,15 @@ class Tester_Shell:
         for result in src:
             self.__run_counter += 1
 
-            if (len(self.__voltage_list) > 0):
-                result["voltage_value"] = self.__callback_request_voltage_value
+            result["voltage_value"] = self.__callback_request_voltage_value(self)
             total_time_passed += (float(result["duration_ms"])/1000)/60  
             curr_result_correct = self.__callback_is_result_correct(result)
+            dut_heath_status = self.__callback_dut_health_check(self)
 
             self.__callback_detect_cache_upsets(result["dmesg_diff"])
             self.__callback_dut_monitor(result["healthlog"])
 
-            if (curr_result_correct == False):
+            if (curr_result_correct == False or dut_heath_status == Tester_Shell_Health_Status.DAMAGED):
                 logging.error("Result SDC detected")
                 logging.error("Error_consecutive: " + str(total_consecutive_errors))
 
@@ -495,34 +500,20 @@ class Tester_Shell:
         total_duration_s = 0
 
         while True:
-            # alive = self.remote_alive(Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, True)
-            # if not alive:
-            #     return False
+            if (self.__callback_dut_health_check(self) == Tester_Shell_Health_Status.DAMAGED):
+                return False
                     
             if (total_duration_s / 60 >= duration_min):
                 break
 
             timer_start = datetime.now()
-            # # Execute the benchmark.
-            # if self.__first_boot == True:
-            #     self.__first_boot = False
-            #     self.remote_execute(self.__benchmark_commands[bench],
-            #                         self.__benchmark_cold_cache_timeout,
-            #                         Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
-            #                         0, 1, True)
-            # else:
-            #     self.remote_execute(self.__benchmark_commands[bench],
-            #                         self.__timeouts[bench],
-            #                         Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value,
-            #                         0, 1,True)
-
 
             results = self.__experiment_execute_benchmark()
             total_errors, curr_batch = self.__experiment_execute_actions_for_each_result(results)
 
             self.__save_results(curr_batch)
             if (total_errors > 0): 
-                return True
+                return False
 
             total_duration_s += (datetime.now() - timer_start).seconds
 
@@ -579,8 +570,7 @@ class Tester_Shell:
 
         while True:
             if (execution_attempt_counter > 0):
-                logging.warning("Assessing the target's health due to communication failure.")
-                self.__target_connect_common(net_timeout_s, net_timeout_s, False)
+                logging.warning("Assessing the target's health due to execution failure.")
 
             conn = self.__target_connect_common(cmd_timeout_s, net_timeout_s, ret_imediate)
             if (conn == None):
@@ -590,7 +580,6 @@ class Tester_Shell:
                 start = timeit.default_timer()
                 response = conn.root.execute_n_times(cmd, dmesg_index, times)
                 results: list = self.__decode_target_response(response)
-
                 time = str(math.ceil(timeit.default_timer() - start))
                 logging.info("Remote_execute(" + results[0]["run_command"] + ") elapsed (seconds): " + time)
                 for check_result in results:
@@ -609,7 +598,7 @@ class Tester_Shell:
                 execution_attempt_counter += 1
 
     def simple_remote_execute(self, cmd: str, times: int, ret_imediate: bool) -> list:
-        return self.remote_execute(cmd, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value, 
+        return self.remote_execute(cmd, Tester_Shell_Constants.TIMEOUT_SIMPLE_EXECUTION.value, 
                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, times, ret_imediate)
 
     def target_set_next_voltage(self) -> bool:
@@ -777,15 +766,14 @@ class Tester_Shell:
                                 Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, 1, False)
 
             logging.warning("Currently examined voltage: " + self.__callback_request_voltage_value(self))
-            # Configure the voltage.
-            #command_to_exec = undervolt_command.format(VID=str(nominal_vid_hex + vid_steps))
             
             for bench in self.__benchmark_list:
                 logging.warning("Currently examined benchmark: " + bench)
-                alive = self.__undervolt_characterization_execute_for_dururation(duration_per_bench_min, bench)
+                failure = self.__undervolt_characterization_execute_for_dururation(duration_per_bench_min, bench)
 
-                if not alive:
+                if not failure:
                     logging.info("Found Vsafe: " + safe_voltage)
+                    logging.info("Vcrash: " + self.__callback_request_voltage_value(self))
                     return safe_voltage
 
             safe_voltage = self.__callback_request_voltage_value(self)
