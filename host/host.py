@@ -285,10 +285,13 @@ class Tester_Shell:
                 if (ret_imediate == True):
                     return None
 
+                if first_error == True:
+                    remote_down_time_start = time()
+
                 if first_error == True and self.__ready_to_clacify_error:
                     self.__ready_to_clacify_error = False
                     self.__clacify_detected_error()
-                    remote_down_time_start = time()
+
                 remote_down_elapsed = time() - remote_down_time_start
                 first_error = False
                 #conn_count_thresh -= 1 
@@ -501,13 +504,12 @@ class Tester_Shell:
         """
             @param duration_min 
         """
-        total_duration_s = 0
 
         while True:
             if (self.__callback_dut_health_check(self) == Tester_Shell_Health_Status.DAMAGED):
                 return False
                     
-            if (total_duration_s / 60 >= duration_min):
+            if (self.__experiment_total_elapsed_s / 60 >= duration_min):
                 break
 
             timer_start = datetime.now()
@@ -519,7 +521,7 @@ class Tester_Shell:
             if (total_errors > 0): 
                 return False
 
-            total_duration_s += (datetime.now() - timer_start).seconds
+            self.__experiment_total_elapsed_s += (datetime.now() - timer_start).seconds
 
         return True
     
@@ -780,10 +782,11 @@ class Tester_Shell:
 
                 if not failure:
                     logging.info("Found Vsafe: " + safe_voltage)
-                    logging.info("Vcrash: " + self.__callback_request_voltage_value(self))
+                    logging.info("Found Vcrash: " + self.__callback_request_voltage_value(self))
                     return safe_voltage
 
                 self.__save_state()
+                self.__experiment_total_elapsed_s = 0
                 if (self.target_set_next_benchmark() == False): break
 
             safe_voltage = self.__callback_request_voltage_value(self)
