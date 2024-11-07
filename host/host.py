@@ -196,6 +196,8 @@ class Tester_Shell:
 
         self.__ready_to_clacify_error = True # Is used to not clacify the same error more than once.
 
+        self.__benchmark_unique_id: str = ""
+
         # Callbacks to be implemented
         self.__callback_is_result_correct: function       = lambda result: None
         self.__callback_detect_cache_upsets: function     = lambda dmesg: None
@@ -327,7 +329,7 @@ class Tester_Shell:
         """
         if self.__debug_disable_state: return
 
-        filename: str = "state/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
+        filename: str = "state/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_" + self.__benchmark_unique_id + "_state.state"
         try:
             with open(filename, "wb") as serialized_instance:
                 cloudpickle.dump(self, serialized_instance)
@@ -342,7 +344,7 @@ class Tester_Shell:
         """
         if self.__debug_disable_state: return
 
-        filename: str = "state/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_state.state"
+        filename: str = "state/" + self.__setup_id + "_" + self.__current_benchmark_id + "_" + self.__current_voltage_id + "_" + self.__benchmark_unique_id + "_state.state"
         try:
             with open(filename, "rb") as decirialized_instance:
                 prev_state = cloudpickle.load(decirialized_instance)
@@ -762,7 +764,6 @@ class Tester_Shell:
         """
         logging.warning("Trying to restore to the previous state, please make sure that\
                         the previously saved state was related to undervolt characterization and not from the experiment.")
-        self.__restore_state()
         self.debug_toggle_resets()
         logging.warning("Starting undervolting characterization for " + self.__current_benchmark_id)
         logging.warning("Characterization ID: " + characterization_id)
@@ -774,9 +775,12 @@ class Tester_Shell:
             self.remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value, 
                                 Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, 1, False)
 
-            logging.warning("Currently examined voltage: " + self.__callback_request_voltage_value(self))
-            
+            voltage_value = round(float(self.__callback_request_voltage_value(self)), 3)
+            logging.warning("Currently examined voltage: " + str(voltage_value))
+            self.__benchmark_unique_id = str(voltage_value)
+
             while True:
+                self.__restore_state()
                 logging.warning("Currently examined benchmark: " + self.__current_benchmark_id)
                 failure = self.__undervolt_characterization_execute_for_dururation(duration_per_bench_min)
 
@@ -790,6 +794,7 @@ class Tester_Shell:
                 if (self.target_set_next_benchmark() == False): break
 
             safe_voltage = self.__callback_request_voltage_value(self)
+            self.__current_benchmark_id = self.__benchmark_list[0]
 
     def experiment_start(self):
         logging.info('Starting... Benchmark: ' + self.__current_benchmark_id)
@@ -906,3 +911,7 @@ class Tester_Shell:
     @property
     def current_voltage_id(self) -> str:
         return self.__current_voltage_id
+    
+    @property
+    def bechmark_unique_id(self) -> str:
+        return self.__benchmark_unique_id

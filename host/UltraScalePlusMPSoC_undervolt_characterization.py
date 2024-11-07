@@ -2,12 +2,10 @@ from host import *
 
 import math
 
-g_current_voltage = 0.700 # Unit: mV
-
 class UltraScalePlusMPSoC_Tester_Undervolt(Tester_Shell):
     def __init__(self):
         super().__init__()
-        self.current_voltage = 0.700
+        self.current_voltage = 0.850
 
     """
         @param src The voltage value to convert to mantissa (to send on PMBus)
@@ -22,11 +20,10 @@ class UltraScalePlusMPSoC_Tester_Undervolt(Tester_Shell):
         return src / 4096 
 
     def undervolt_format(self) -> str:
-        global g_current_voltage
         step = 0.010 # Unit: mV
 
-        self.current_voltage = g_current_voltage - step
-        mantissa = self.convert_to_mantissa(g_current_voltage)
+        self.current_voltage = self.current_voltage - step
+        mantissa = self.convert_to_mantissa(self.current_voltage)
         undervolt_command = "i2cset -f -y 0 0x13 0x21 {mantissa_hex} w".format(mantissa_hex=hex(mantissa))
 
         return undervolt_command

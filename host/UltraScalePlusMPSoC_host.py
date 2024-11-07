@@ -24,6 +24,8 @@ class UltraScalePlusMPSoC_Tester(Tester_Shell):
         self.pl_temp = 0
         self.ps_temp = 0
 
+        self.pl_watt = 0
+
     def is_result_correct(self, result: dict):
         pass
 
@@ -37,12 +39,16 @@ class UltraScalePlusMPSoC_Tester(Tester_Shell):
     def dut_monitor(self, healthlog: str):
         pl_temp_regex = "PL TEMP: (\d+.*)"
         ps_temp_regex = "PS TEMP: (\d+.*)"
+        ps_watt_regex = "PL POWER(W): (\d+.*)"
 
         self.pl_temp = round(float(re.search(pl_temp_regex, healthlog).group(1)), 2)
         self.ps_temp = round(float(re.search(ps_temp_regex, healthlog).group(1)), 2)
 
+        self.pl_watt = round(float(re.search(ps_watt_regex, healthlog).group(1)), 2)
+
     def additional_logs(self) -> str:
-        return "PL Temp: " + str(self.pl_temp) + "(C) | PS Temp: " + str(self.ps_temp) + "(C)"
+        return "PL Temp: " + str(self.pl_temp) + "(C) | PS Temp: " + str(self.ps_temp) + "(C)" \
+               "PL power consumption: " + str(self.pl_watt) + "(W)"
 
 def main():
     test = UltraScalePlusMPSoC_Tester()
