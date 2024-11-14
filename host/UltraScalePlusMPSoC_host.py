@@ -29,6 +29,16 @@ class UltraScalePlusMPSoC_Tester(Tester_Shell):
     def is_result_correct(self, result: dict):
         pass
 
+    def convert_to_voltage(self, src: int):
+        return src / 4096 
+
+    def get_voltage(self, src: Tester_Shell) -> str:
+        voltage_command = "i2cget -f -y 0 0x13 0x8B w"
+
+        mantissa = src.simple_remote_execute(voltage_command, 1, False)[0]["stdoutput"]
+
+        return str(self.convert_to_voltage(int(mantissa.strip(), 16)))
+
     def target_reset_button(self):
         controller = Relay_Controller("ttyUSB0")
         controller.reset_computer()
@@ -39,7 +49,7 @@ class UltraScalePlusMPSoC_Tester(Tester_Shell):
     def dut_monitor(self, healthlog: str):
         pl_temp_regex = "PL TEMP: (\d+.*)"
         ps_temp_regex = "PS TEMP: (\d+.*)"
-        ps_watt_regex = "PL POWER(W): (\d+.*)"
+        ps_watt_regex = "VCCINT.W.: (\d+).\d+"
 
         self.pl_temp = round(float(re.search(pl_temp_regex, healthlog).group(1)), 2)
         self.ps_temp = round(float(re.search(ps_temp_regex, healthlog).group(1)), 2)
@@ -48,7 +58,7 @@ class UltraScalePlusMPSoC_Tester(Tester_Shell):
 
     def additional_logs(self) -> str:
         return "PL Temp: " + str(self.pl_temp) + "(C) | PS Temp: " + str(self.ps_temp) + "(C)" \
-               "PL power consumption: " + str(self.pl_watt) + "(W)"
+               " | VCCINT power consumption: " + str(self.pl_watt) + "(W)"
 
 def main():
     test = UltraScalePlusMPSoC_Tester()
@@ -59,7 +69,7 @@ def main():
 
     test.set_callback(test.is_result_correct, Tester_Shell_Callback.IS_RESULT_CORRECT)
     test.set_callback(test.target_reset_button, Tester_Shell_Callback.TARGET_RESET_BUTTON)
-    test.set_callback(test.target_class_system_err, Tester_Shell_Callback.TARGET_CLASS_SYSTEM_ERR)
+    test.set_callback(test.get_voltage, Tester_Shell_Callback.REQUEST_VOLTAGE_VALUE)
     test.set_callback(test.additional_logs, Tester_Shell_Callback.ADDITIONAL_LOGS)
     test.set_callback(test.dut_monitor, Tester_Shell_Callback.DUT_MONITOR)
 
