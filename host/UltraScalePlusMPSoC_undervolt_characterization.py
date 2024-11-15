@@ -5,7 +5,7 @@ import math
 class UltraScalePlusMPSoC_Tester_Undervolt(Tester_Shell):
     def __init__(self):
         super().__init__()
-        self.current_voltage = 0.860
+        self.current_voltage = 0.840
 
     """
         @param src The voltage value to convert to mantissa (to send on PMBus)
@@ -20,7 +20,7 @@ class UltraScalePlusMPSoC_Tester_Undervolt(Tester_Shell):
         return src / 4096 
 
     def undervolt_format(self) -> str:
-        step = 0.100 # Unit: mV
+        step = 0.010 # Unit: mV
 
         mantissa = self.convert_to_mantissa(self.current_voltage)
         undervolt_command = "i2cset -f -y 0 0x13 0x21 {mantissa_hex} w".format(mantissa_hex=hex(mantissa))
@@ -53,14 +53,13 @@ class UltraScalePlusMPSoC_Tester_Undervolt(Tester_Shell):
 def main():
     test = UltraScalePlusMPSoC_Tester_Undervolt()
     test.load_experiment_attr_from_json_file("UltraScalePlusMPSoC_undervolt_characterization.json")
-    test.debug_toggle_state_restore()
     
     # Set the neccessery callbacks.
     test.set_callback(test.undervolt_format, Tester_Shell_Callback.UNDERVOLT_FORMAT)
     test.set_callback(test.get_voltage, Tester_Shell_Callback.REQUEST_VOLTAGE_VALUE)
     test.set_callback(test.health_check, Tester_Shell_Callback.DUT_HEALTH_CHECK)
 
-    test.auto_undervolt_characterization(0.00001, "PL UNDERVOLT")
+    test.auto_undervolt_characterization(0.10, "PL UNDERVOLT")
 
 if __name__ == '__main__':
     main()
