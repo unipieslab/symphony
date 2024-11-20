@@ -5,7 +5,7 @@ import math
 class UltraScalePlusMPSoC_Tester_Undervolt(Tester_Shell):
     def __init__(self):
         super().__init__()
-        self.current_voltage = 0.840
+        self.current_voltage = 0.850
 
     """
         @param src The voltage value to convert to mantissa (to send on PMBus)
@@ -53,7 +53,7 @@ class UltraScalePlusMPSoC_Tester_Undervolt(Tester_Shell):
 def main():
     test = UltraScalePlusMPSoC_Tester_Undervolt()
     test.load_experiment_attr_from_json_file("UltraScalePlusMPSoC_undervolt_characterization.json")
-    
+
     # Set the neccessery callbacks.
     test.set_callback(test.undervolt_format, Tester_Shell_Callback.UNDERVOLT_FORMAT)
     test.set_callback(test.get_voltage, Tester_Shell_Callback.REQUEST_VOLTAGE_VALUE)
