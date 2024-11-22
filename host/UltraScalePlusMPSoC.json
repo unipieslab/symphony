@@ -9,18 +9,18 @@
         "609mV": "i2cset -y -f 0 0x13 0x21 0x09bf w"
     },
     "benchmark_commands": {
-        "RefineDet-Medical": "/home/root/benchmarks/stress_execute/RefineDet_Medical_execute.sh",
-        "RefineDet-Medical_pruned_0_5": "/home/root/benchmarks/stress_execute/RefineDet_Medical_pruned_0_5_execute.sh",
-        "RefineDet-Medical_pruned_0_88": "/home/root/benchmarks/stress_execute/RefineDet_Medical_pruned_0_88_execute.sh",
-        "Resnet50": "/home/root/benchmarks/stress_execute/Resnet50_execute.sh",
-        "Resnet50_pruned_0_3": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute.sh",
-        "Resnet50_pruned_0_6": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_6_execute.sh",
-        "OFA_Yolo": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute.sh",
-        "OFA_Yolo_pruned_0_30": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute.sh",
-        "OFA_Yolo_pruned_0_50": "/home/root/benchmarks/stress_execute/Resnet50_pruned_0_3_execute.sh",
-        "VGG_16": "/home/root/benchmarks/stress_execute/VGG_16_execute.sh",
-        "VGG_16_pruned_0_43": "/home/root/benchmarks/stress_execute/VGG_16_pruned_0_43_execute.sh",
-        "VGG_16_pruned_0_5": "/home/root/benchmarks/stress_execute/VGG_16_pruned_0_5_execute.sh"
+        "RefineDet-Medical": "/home/root/benchmarks/stress_execute/RefineDet_Medical/RefineDet_Medical_execute.sh",
+        "RefineDet-Medical_pruned_0_5": "/home/root/benchmarks/stress_execute/RefineDet_Medical/RefineDet_Medical_pruned_0_5_execute.sh",
+        "RefineDet-Medical_pruned_0_88": "/home/root/benchmarks/stress_execute/RefineDet_Medical/RefineDet_Medical_pruned_0_88_execute.sh",
+        "Resnet50": "/home/root/benchmarks/stress_execute/Resnet50/Resnet50_execute.sh",
+        "Resnet50_pruned_0_3": "/home/root/benchmarks/stress_execute/Resnet50/Resnet50_pruned_0_3_execute.sh",
+        "Resnet50_pruned_0_6": "/home/root/benchmarks/stress_execute/Resnet50/Resnet50_pruned_0_6_execute.sh",
+        "OFA_Yolo": "/home/root/benchmarks/stress_execute/OFA_Yolo/OFA_Yolo_execute.sh",
+        "OFA_Yolo_pruned_0_30": "/home/root/benchmarks/stress_execute/OFA_Yolo/OFA_Yolo_pruned_0_3_execute.sh",
+        "OFA_Yolo_pruned_0_50": "/home/root/benchmarks/stress_execute/OFA_Yolo/OFA_Yolo_pruned_0_5_execute.sh",
+        "VGG_16": "/home/root/benchmarks/stress_execute/VGG16/VGG_16_execute.sh",
+        "VGG_16_pruned_0_43": "/home/root/benchmarks/VGG16/stress_execute/VGG_16_pruned_0_43_execute.sh",
+        "VGG_16_pruned_0_5": "/home/root/benchmarks/VGG16/stress_execute/VGG_16_pruned_0_5_execute.sh"
     },
     
     "timeouts": {

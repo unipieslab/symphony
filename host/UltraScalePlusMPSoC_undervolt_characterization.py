@@ -20,7 +20,7 @@ class UltraScalePlusMPSoC_Tester_Undervolt(Tester_Shell):
         return src / 4096 
 
     def undervolt_format(self) -> str:
-        step = 0.010 # Unit: mV
+        step = 0.001 # Unit: mV
 
         mantissa = self.convert_to_mantissa(self.current_voltage)
         undervolt_command = "i2cset -f -y 0 0x13 0x21 {mantissa_hex} w".format(mantissa_hex=hex(mantissa))

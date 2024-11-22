@@ -6,18 +6,18 @@
     "voltage_commands": {
     },
     "benchmark_commands": {
-        "RefineDet-Medical": "/home/root/benchmarks/stress_execute_performance/RefineDet_Medical/execute_RefineDet_medical.sh",
-        "RefineDet-Medical_pruned_0_5": "/home/root/benchmarks/stress_execute_performance/RefineDet_Medical/execute_RefineDet_medical_pruned_0_5.sh",
-        "RefineDet-Medical_pruned_0_88": "/home/root/benchmarks/stress_execute_performance/RefineDet_Medical/execute_RefineDet_medical_pruned_0_88.sh",
-        "Resnet50": "/home/root/benchmarks/stress_execute_performance/Resnet50/execute_resnet50.sh",
-        "Resnet50_pruned_0_3": "/home/root/benchmarks/stress_execute_performance/Resnet50/execute_resnet50_pruned_0_3.sh",
-        "Resnet50_pruned_0_6": "/home/root/benchmarks/stress_execute_performance/Resnet50/execute_resnet50_pruned_0_6.sh",
-        "OFA_Yolo": "/home/root/benchmarks/stress_execute_performance/OFA_Yolo/execute_OFA_Yolo.sh",
-        "OFA_Yolo_pruned_0_30": "/home/root/benchmarks/stress_execute_performance/OFA_Yolo/execute_OFA_Yolo_pruned_0_30.sh",
-        "OFA_Yolo_pruned_0_50": "/home/root/benchmarks/stress_execute_performance/OFA_Yolo/execute_OFA_Yolo_pruned_0_50.sh",
-        "VGG_16": "/home/root/benchmarks/stress_execute_performance/VGG_16/execute_vgg_16.sh",
-        "VGG_16_pruned_0_43": "/home/root/benchmarks/stress_execute_performance/VGG_16/execute_vgg_16_pruned_0_43.sh",
-        "VGG_16_pruned_0_5": "/home/root/benchmarks/stress_execute_performance/VGG_16/execute_vgg_16_pruned_0_5.sh"
+        "RefineDet-Medical": "/home/root/benchmarks/stress_execute/RefineDet_Medical/RefineDet_Medical_execute.sh",
+        "RefineDet-Medical_pruned_0_5": "/home/root/benchmarks/stress_execute/RefineDet_Medical/RefineDet_Medical_pruned_0_5_execute.sh",
+        "RefineDet-Medical_pruned_0_88": "/home/root/benchmarks/stress_execute/RefineDet_Medical/RefineDet_Medical_pruned_0_88_execute.sh",
+        "Resnet50": "/home/root/benchmarks/stress_execute/Resnet50/Resnet50_execute.sh",
+        "Resnet50_pruned_0_3": "/home/root/benchmarks/stress_execute/Resnet50/Resnet50_pruned_0_3_execute.sh",
+        "Resnet50_pruned_0_6": "/home/root/benchmarks/stress_execute/Resnet50/Resnet50_pruned_0_6_execute.sh",
+        "OFA_Yolo": "/home/root/benchmarks/stress_execute/OFA_Yolo/OFA_Yolo_execute.sh",
+        "OFA_Yolo_pruned_0_30": "/home/root/benchmarks/stress_execute/OFA_Yolo/OFA_Yolo_pruned_0_3_execute.sh",
+        "OFA_Yolo_pruned_0_50": "/home/root/benchmarks/stress_execute/OFA_Yolo/OFA_Yolo_pruned_0_5_execute.sh",
+        "VGG_16": "/home/root/benchmarks/stress_execute/VGG16/VGG_16_execute.sh",
+        "VGG_16_pruned_0_43": "/home/root/benchmarks/VGG16/stress_execute/VGG_16_pruned_0_43_execute.sh",
+        "VGG_16_pruned_0_5": "/home/root/benchmarks/VGG16/stress_execute/VGG_16_pruned_0_5_execute.sh"
     }, 
     "timeouts": {
         "BOOT": 26,
@@ -41,5 +41,5 @@
                        "OFA_Yolo_pruned_0_50", "VGG_16", "VGG_16_pruned_0_43", "VGG_16_pruned_0_5"],
     "target_ip": "10.30.0.56",
     "target_port": 18861,
-    "setup_id": "UltraScalePlusMPSoC_undervolt_characterization_pruned_perfromance"
+    "setup_id": "UltraScalePlusMPSoC_undervolt_characterization_pruned"
 }

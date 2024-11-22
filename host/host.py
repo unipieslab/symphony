@@ -199,7 +199,7 @@ class Tester_Shell:
         self.__benchmark_unique_id: str = ""
 
         # Callbacks to be implemented
-        self.__callback_is_result_correct: function       = lambda result: None
+        self.__callback_is_result_correct: function       = lambda result: False|True
         self.__callback_detect_cache_upsets: function     = lambda dmesg: None
         self.__callback_target_reset_button: function     = lambda: None
         self.__callback_target_power_button: function     = lambda: None
