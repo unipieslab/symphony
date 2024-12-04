@@ -18,3 +18,4 @@ Python-3.9.9
 host/__pycache__/host.cpython-311.pyc
 sync_sony.sh
 __pycache__/
+.vscode/
