@@ -16,8 +16,8 @@
         "OFA_Yolo_pruned_0_30": "/home/root/benchmarks/stress_execute/OFA_Yolo/OFA_Yolo_pruned_0_3_execute.sh",
         "OFA_Yolo_pruned_0_50": "/home/root/benchmarks/stress_execute/OFA_Yolo/OFA_Yolo_pruned_0_5_execute.sh",
         "VGG_16": "/home/root/benchmarks/stress_execute/VGG16/VGG_16_execute.sh",
-        "VGG_16_pruned_0_43": "/home/root/benchmarks/VGG16/stress_execute/VGG_16_pruned_0_43_execute.sh",
-        "VGG_16_pruned_0_5": "/home/root/benchmarks/VGG16/stress_execute/VGG_16_pruned_0_5_execute.sh"
+        "VGG_16_pruned_0_43": "/home/root/benchmarks/stress_execute/VGG16/VGG_16_pruned_0_43_execute.sh",
+        "VGG_16_pruned_0_5": "/home/root/benchmarks/stress_execute/VGG16/VGG_16_pruned_0_5_execute.sh"
     }, 
     "timeouts": {
         "BOOT": 26,
