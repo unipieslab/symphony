@@ -20,7 +20,7 @@
         "VGG_16_pruned_0_5": "/home/root/benchmarks/stress_execute/VGG16/VGG_16_pruned_0_5_execute.sh"
     }, 
     "timeouts": {
-        "BOOT": 26,
+        "BOOT": 60,
         "RefineDet-Medical": 3600,
         "RefineDet-Medical_pruned_0_5": 3600,
         "RefineDet-Medical_pruned_0_88": 3600,

@@ -40,7 +40,6 @@
         "VGG_16": 3,
         "VGG_16_pruned_0_43": 3,
         "VGG_16_pruned_0_5": 3
-
     }, 
     "voltage_list": ["850mV", "610mV", "609mV"],
     "benchmark_list": ["RefineDet-Medical", "RefineDet-Medical_pruned_0_5", "RefineDet-Medical_pruned_0_88", 

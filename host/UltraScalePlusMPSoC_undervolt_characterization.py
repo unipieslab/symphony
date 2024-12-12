@@ -1,4 +1,6 @@
 from host import *
+from GPIOClient import GPIOClient
+import os
 
 import math
 
@@ -50,6 +52,9 @@ class UltraScalePlusMPSoC_Tester_Undervolt(Tester_Shell):
     
         return Tester_Shell_Health_Status.HEALTHY
 
+    def dut_reset(self):
+        os.system("/bin/python3.10 ./reset.py")
+
 def main():
     test = UltraScalePlusMPSoC_Tester_Undervolt()
     test.load_experiment_attr_from_json_file("UltraScalePlusMPSoC_undervolt_characterization.json")
@@ -58,6 +63,7 @@ def main():
     test.set_callback(test.undervolt_format, Tester_Shell_Callback.UNDERVOLT_FORMAT)
     test.set_callback(test.get_voltage, Tester_Shell_Callback.REQUEST_VOLTAGE_VALUE)
     test.set_callback(test.health_check, Tester_Shell_Callback.DUT_HEALTH_CHECK)
+    test.set_callback(test.dut_reset, Tester_Shell_Callback.TARGET_RESET_BUTTON)
 
     test.auto_undervolt_characterization(0.10, "PL UNDERVOLT")
 

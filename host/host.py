@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 import logging
 from time import time
+from time import sleep
 import timeit
 import math
 from datetime import timedelta
@@ -50,6 +51,7 @@ class Tester_Shell_Constants(Enum):
     UNDERVOLT_POSITIVE_STEP            =  1.00
     UNDERVOLT_NEGATIVE_STEP            = -1.00
     TIMEOUT_SIMPLE_EXECUTION           =  60
+    UNDERVOLT_REQUIRED_SLEEP_TIME      =  30 # seconds.
 
 class Tester_Shell_Defaults(Enum):
     """
@@ -254,6 +256,8 @@ class Tester_Shell:
             logging.warning('Configuring voltage: ' + self.__current_voltage_id)
             ret_code = self.remote_execute(self.__voltage_commands[self.__current_voltage_id], self.__voltage_config_timeout,
                                              Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 1, 1, False)[0]["return_code"]
+
+        sleep(Tester_Shell_Constants.UNDERVOLT_REQUIRED_SLEEP_TIME.value)
 
     def __generate_result_name(self) -> str:
         now = datetime.now() # current date and time
@@ -779,6 +783,8 @@ class Tester_Shell:
             logging.warning("Currently examined voltage: " + str(voltage_value))
             self.__benchmark_unique_id = str(voltage_value)
 
+            sleep(Tester_Shell_Constants.UNDERVOLT_REQUIRED_SLEEP_TIME.value) # Wait for the system to stabilize to the new voltage.
+
             while True:
                 self.__restore_state()
                 logging.warning("Currently examined benchmark: " + self.__current_benchmark_id)
@@ -792,6 +798,16 @@ class Tester_Shell:
                 self.__save_state()
                 self.__experiment_total_elapsed_s = 0
                 if (self.target_set_next_benchmark() == False): break
+
+                # Perform a reset
+                self.debug_toggle_resets()
+                self.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS)
+                self.debug_toggle_resets()
+
+                self.remote_execute(command_to_exec, Tester_Shell_Constants.TIMEOUT_COLD_CACHE_SCALE_BENCHMARK.value, 
+                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, 1, False)
+                logging.warning("Voltage restored")
+                sleep(Tester_Shell_Constants.UNDERVOLT_REQUIRED_SLEEP_TIME.value) # Wait for the system to stabilize to the new voltage.
 
             safe_voltage = self.__callback_request_voltage_value(self)
             self.__current_benchmark_id = self.__benchmark_list[0]
@@ -915,3 +931,11 @@ class Tester_Shell:
     @property
     def bechmark_unique_id(self) -> str:
         return self.__benchmark_unique_id
+
+    @property
+    def target_ip(self) -> str:
+        return self.__target_ip
+    
+    @property
+    def target_port(self) -> str:
+        return self.__target_port
