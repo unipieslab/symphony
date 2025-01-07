@@ -1,21 +1,5 @@
 from host import *
 import re
-import serial
-import time
-
-class Relay_Controller():
-    # Initialize the controller
-    # @param dev The device of the UART module.
-    def __init__(self, dev):
-        self.dev = "/dev/"+dev
-        self.ser = serial.Serial(self.dev)
-        self.ser.setRTS(False) # Initialize RTS
-        self.ser.setDTR(False) # Initialize DTR
-
-    def reset_computer(self):
-        self.ser.setRTS(True)
-        time.sleep(1)
-        self.ser.setRTS(False)
 
 class UltraScalePlusMPSoC_Tester(Tester_Shell):
     def __init__(self):
@@ -40,11 +24,7 @@ class UltraScalePlusMPSoC_Tester(Tester_Shell):
         return str(self.convert_to_voltage(int(mantissa.strip(), 16)))
 
     def target_reset_button(self):
-        controller = Relay_Controller("ttyUSB0")
-        controller.reset_computer()
-
-    def target_class_system_err(self, addr: str):
-        return None # TODO - Find a way to examine if the PL is down (or the whole system)
+        os.system("/bin/python3.10 ./reset.py")
 
     def dut_monitor(self, healthlog: str):
         pl_temp_regex = "PL TEMP: (\d+.*)"
@@ -56,6 +36,21 @@ class UltraScalePlusMPSoC_Tester(Tester_Shell):
 
         self.pl_watt = round(float(re.search(ps_watt_regex, healthlog).group(1)), 2)
 
+    def health_check(self, src: Tester_Shell) -> Tester_Shell_Health_Status:
+        dpu_crash_indicator = "Check failed"
+        health_check_cmd = "/home/root/downloads/Vitis-AI/examples/Vitis-AI-Library/samples/medicaldetection/test_jpeg_medicaldetection                     \
+                            /usr/share/vitis_ai_library/models/pruned_experiment/RefineDet-Medical_EDD_pruned_0_5_tf.xmodel                                 \
+                            /home/root/benchmarks/EndoCV2020-Endoscopy-Disease-Detection-Segmentation-subChallenge_data/originalImages/EDD2020_B0089.jpg"
+
+        result = src.simple_remote_execute(health_check_cmd, 1, False)[0]
+        stdoutput = result["stdoutput"]
+        stderror  = result["stderror"]
+
+        if (dpu_crash_indicator in stdoutput or dpu_crash_indicator in stderror):
+            return Tester_Shell_Health_Status.DAMAGED
+    
+        return Tester_Shell_Health_Status.HEALTHY
+
     def additional_logs(self) -> str:
         return "PL Temp: " + str(self.pl_temp) + "(C) | PS Temp: " + str(self.ps_temp) + "(C)" \
                " | VCCINT power consumption: " + str(self.pl_watt) + "(W)"
@@ -64,14 +59,15 @@ def main():
     test = UltraScalePlusMPSoC_Tester()
     test.load_experiment_attr_from_json_file("UltraScalePlusMPSoC.json")
 
-    test.debug_toggle_state_restore()
-    test.debug_toggle_resets()
+    # test.debug_toggle_state_restore()
+    # test.debug_toggle_resets()
 
     test.set_callback(test.is_result_correct, Tester_Shell_Callback.IS_RESULT_CORRECT)
     test.set_callback(test.target_reset_button, Tester_Shell_Callback.TARGET_RESET_BUTTON)
     test.set_callback(test.get_voltage, Tester_Shell_Callback.REQUEST_VOLTAGE_VALUE)
     test.set_callback(test.additional_logs, Tester_Shell_Callback.ADDITIONAL_LOGS)
     test.set_callback(test.dut_monitor, Tester_Shell_Callback.DUT_MONITOR)
+    test.set_callback(test.health_check, Tester_Shell_Callback.DUT_HEALTH_CHECK)
 
     try:
         test.target_perform_undervolt_test()

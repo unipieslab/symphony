@@ -1,5 +1,4 @@
 from host import *
-from GPIOClient import GPIOClient
 import os
 
 import math
@@ -22,7 +21,10 @@ class UltraScalePlusMPSoC_Tester_Undervolt(Tester_Shell):
         return src / 4096 
 
     def undervolt_format(self) -> str:
-        step = 0.001 # Unit: mV
+        if (self.current_voltage > 0.660):
+            step = 0.010 # Unit: mV
+        else:
+            step = 0.001
 
         mantissa = self.convert_to_mantissa(self.current_voltage)
         undervolt_command = "i2cset -f -y 0 0x13 0x21 {mantissa_hex} w".format(mantissa_hex=hex(mantissa))
