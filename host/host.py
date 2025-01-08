@@ -294,7 +294,6 @@ class Tester_Shell:
                 if first_error == True:
                     remote_down_time_start = time()
 
-
                 remote_down_elapsed = time() - remote_down_time_start
 
                 if first_error == True and self.__ready_to_clacify_error:
