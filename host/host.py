@@ -294,11 +294,13 @@ class Tester_Shell:
                 if first_error == True:
                     remote_down_time_start = time()
 
+
+                remote_down_elapsed = time() - remote_down_time_start
+
                 if first_error == True and self.__ready_to_clacify_error:
                     self.__ready_to_clacify_error = False
                     self.__clacify_detected_error()
 
-                remote_down_elapsed = time() - remote_down_time_start
                 first_error = False
                 #conn_count_thresh -= 1 
                 attemp_counter += 1
@@ -607,7 +609,7 @@ class Tester_Shell:
                     execution_attempt_counter = 0
                 else:
                     logging.warning("Execution timeout. Attempt " + str(execution_attempt_counter))
-                execution_attempt_counter += 1
+                    execution_attempt_counter += 1
 
     def simple_remote_execute(self, cmd: str, times: int, ret_imediate: bool) -> list:
         return self.remote_execute(cmd, Tester_Shell_Constants.TIMEOUT_SIMPLE_EXECUTION.value, 
