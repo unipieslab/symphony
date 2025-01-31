@@ -101,6 +101,9 @@ class Tester_Shell_Health_Status(Enum):
     HEALTHY = 0
     DAMAGED = 1
 
+class Tester_Result:
+    pass
+
 class Tester_Batch:
     def __init__(self):
         self.__batch: dict = {}
@@ -476,10 +479,13 @@ class Tester_Shell:
 
         batch: Tester_Batch = Tester_Batch()
 
+        run_time_voltage = self.__callback_request_voltage_value(self)
+
         for result in src:
             self.__run_counter += 1
 
-            result["voltage_value"] = self.__callback_request_voltage_value(self)
+            result["voltage_value"] = run_time_voltage
+            #result["voltage_value"] = self.__callback_request_voltage_value(self)
             total_time_passed += (float(result["duration_ms"])/1000)/60  
             curr_result_correct = self.__callback_is_result_correct(result)
             dut_heath_status = self.__callback_dut_health_check(self)
@@ -488,12 +494,13 @@ class Tester_Shell:
             self.__callback_dut_monitor(result["healthlog"])
 
             if (curr_result_correct == False or dut_heath_status == Tester_Shell_Health_Status.DAMAGED):
-                logging.error("Result SDC detected")
-                logging.error("Error_consecutive: " + str(total_consecutive_errors))
-
                 total_consecutive_errors += 1
                 self.__sdc_counter += 1
                 self.__total_errors += 1
+
+                logging.error("Result SDC detected")
+                logging.error("Error_consecutive: " + str(total_consecutive_errors))
+
             else:
                 total_consecutive_errors = 0
 

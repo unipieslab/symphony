@@ -1,3 +1,6 @@
+import sys
+sys.path.insert(1, '../../../host')
+
 from host import *
 import re
 
@@ -24,7 +27,7 @@ class UltraScalePlusMPSoC_Tester(Tester_Shell):
         return str(self.convert_to_voltage(int(mantissa.strip(), 16)))
 
     def target_reset_button(self):
-        os.system("/bin/python3.10 ./reset.py")
+        os.system("/bin/python3.11 ./reset.py")
 
     def dut_monitor(self, healthlog: str):
         pl_temp_regex = "PL TEMP: (\d+.*)"

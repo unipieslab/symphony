@@ -1,3 +1,7 @@
+import sys
+
+sys.path.insert(1, '../../../host')
+
 from host import *
 import os
 
