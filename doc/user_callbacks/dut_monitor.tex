@@ -1,0 +1,58 @@
+\subsection{dut\_monitor}
+
+\subsubsection{Callback signature}
+\begin{lstlisting}
+def __callback_dut_monitor(self, healthlog: str) -> None
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+This callback can be used to monitor the DUT system's 
+resources, for example, to retrieve the temperature. Is 
+possible to use this callback in combination with other 
+callbacks, as depicted in the following example. 
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+$\textbf{healthlog}:$ Constitute a string that contains crucial 
+health-related information transferred from the DUT system 
+(also user-defiend)
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+No parameters are required.
+\end{lstlisting}
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+class My_tester(Tester_Shell): # Sub-class of Tester_Shell (see section 8)
+    def __init__(self):
+        self.temperature = 0
+
+    # Retrieve the temperature from DUT.    
+    def monitor_dut_user_defined(self) -> None:
+        # Retrieve the temperature from DUT system...
+        self.temperature = dut_current_temp
+
+    # Log the temperature of DUT.
+    def my_additional_logs_user_defined(self) -> str:
+        return "TEMP(C):" + str(self.temperature)
+
+tester = My_tester() # An instance of Symphony (Host)
+# Define the instructions of how to peform health-check
+tester.set_callback(
+    tester.monitor_dut_user_defined, # User-defined method
+    Tester_Shell_Callback.DUT_MONITOR
+)
+
+# Define additional logs.
+tester.set_callback(
+    tester.my_additional_logs_user_defined, # User-defined method
+    Tester_Shell_Callback.ADDITIONAL_LOGS.
+)
+
+
+\end{lstlisting}

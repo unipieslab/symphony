@@ -1,0 +1,32 @@
+Symphony is designed to create an abstraction between the user and the internal implementation. This abstraction comes at the cost of immobilizing the user from editing anything from the internal implementation. Internal functionalities may not be able to handle certain scenarios, though. For such scenarios, the user can use the inheritance model that Python delivers to expand the framework's functionalities to handle new scenarios. This chapter will describe in detail how to expand this framework.
+
+\subsection{Inheritance Model}
+Like any object-oriented programming language, Python has an inheritance model that allows the developer to create a subclass from another class. In the case of Symphony, the developer must inherit from the \textbf{Tester\_Shell} class to expand the framework's implementation. Below is an illustrative example that will clarify any issue. 
+
+
+\begin{lstlisting}
+class My_Tester(Tester_Shell):
+    def __init__(self):
+        super().__init__()
+        # class Variables...
+    
+    def reset_button() -> None: # Method used for callback.
+        # Code to simulate the press of the power button..
+        
+    def new_functionality_1(self):
+        # Code...
+
+    # Methods... 
+
+tester = My_Tester() # An instance of the new implemention
+tester.set_callback(
+    tester.reset_button,
+    Tester_Shell_Callback.TARGET_RESET_BUTTON 
+)
+
+tester.new_functionality_1()
+tester.start_experiment()
+
+\end{lstlisting}
+
+It is important to note that the sub-class's init method must always call the \textbf{super.init()} method in order for the parent class, Tester\_Shell, to initialize its internal components. Moreover, another advantage of this implementation is that the developer can implement their callbacks inside the subclass and reference them, as shown in the previous code, to assign the corresponding callback to an internal one, using the \textbf{set\_callback} method (\autoref{func:set_callback}).

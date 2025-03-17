@@ -1,0 +1,47 @@
+\subsection{set\_callback}
+\label{func:set_callback}
+\subsubsection{Function signature}
+\begin{lstlisting}
+def set_callback(self, callback_func, callback_id: Tester_Shell_Callback) -> None
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Assigns a user-defined routine to an internal routine used 
+for actions like resetting or monitoring the DUT. These 
+actions can't be implemented in a way that works in every 
+implementation and DUT system. Thus, the user must 
+implement it for the specific scenario at hand.
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+$\textbf{callback\_func}$: Represents a function 
+pointer pointing to the user-defined function of interest.
+
+$\textbf{callback\_id}$: Specifies which internal routine to replace 
+with the user-defined routine (see section for the list of 
+internal routines available for modification).
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Nothing is returned
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+def reset_dut():
+    # Code that performs hard reset.
+
+tester = Tester_Shell() # An instance of Symphony (Host)
+ls_cmd_timetout = 2 # seconds
+
+# How does the dut perform a hard reset?
+tester.set_callback(reset_dut, Tester_Shell_Callback.TARGET_RESET_BUTTON)
+
+# Start the experiment.
+tester.experiment_start()
+\end{lstlisting}

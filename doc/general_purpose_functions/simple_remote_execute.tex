@@ -1,0 +1,50 @@
+\subsection{simple\_remote\_execute}
+
+\subsubsection{Function signature}
+\begin{lstlisting}
+def simple_remote_execute(self, cmd: str, times: int, ret_imediate: bool) -> list
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Is a simpler version of the corresponding remote_execute 
+routine. The only difference between these two routines is 
+that the simple_remote_execute routine requires fewer 
+parameters than remote_execute does, making it easier to 
+use in some cases where the extra parameters are 
+redundant, like executing a command whose execution time 
+is only a few seconds. If three attempts of execution have 
+been attempted, then, the DUT is ordered to do a hard 
+reset
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+$\textbf{cmd}$: Represents a string that is the command to execute
+
+$\textbf{times}$: An integer representing the number of times the DUT 
+system must execute the requested command. 
+
+$\textbf{ret\_imediate}$: Represents a logical value that allows the
+users to force the routine to return immediately after
+encountering any (communication-related) error.
+
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Returns a list holding the results of the requested
+command. The list contains an element number equal to the
+number of times the requested command was executed
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+tester = Tester_Shell() # An instance of Symphony (Host)
+ls_cmd_timetout = 2 # seconds
+
+tester.simple_remote_execute("ls", 2, False)
+
+\end{lstlisting}

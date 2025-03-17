@@ -1,0 +1,34 @@
+\subsection{JSON}
+To start using \textbf{Symphony}, the user must provide certain pieces of information for the framework to start conducting the experiment. This includes a benchmark list to be executed, an experiment ID (to differentiate between results), the expected duration of the entire experiment, and other details as shown in \autoref{tab:json_entries_req}. 
+
+The information mentioned before is defined via \textbf{JSON} format file; containing the respective fields for those listed in \autoref{tab:json_entries_req}. Not all fields listed in \autoref{tab:json_entries_req} are mandatory for Symphony's operation, some fields are used in specific scenarios, such as undervolting, while others have predefined values. The user can distinguish such fields from \autoref{tab:json_entries_req} by looking at \textbf{column 2 (Importance)}. 
+
+Caution is required for the fields specified as "undervolted" in column 2 of \autoref{tab:json_entries_req}. Information related to undervolting can be ignored if the experiment is not undervolt-related. The respective fields in the JSON file, if not used, must remain empty, either by setting as value \textbf{"null"} or \textbf{"[]"} or \textbf{"\{\}"} depending on the type of each field.
+
+There could be cases where the experiment requires more information than those listed in \autoref{tab:json_entries_req}. In such cases, the user can define additional fields in the JSON file to satisfy the requirements. Should the user add additional fields to the JSON file, then the respective code must be written in order to handle the extra information, see the expanding framework section.
+
+\begin{table}[h!]
+\begin{center}
+\begin{tabular}{ |c|c|c| } 
+\hline
+JSON Entry & Importance & defaults \\
+\hline
+effective\_time\_per\_batch\_s & OPTIONAL & 20 \\ 
+finish\_after\_total\_effective\_min & OPTIONAL & 100 \\ 
+finish\_after\_total\_errors & OPTIONAL & 100 \\
+voltage\_commands & UNDERVOLT & - \\
+benchmark\_commands & REQUIRED & - \\
+timeouts & REQUIRED & - \\ 
+voltage\_list & UNDERVOLT & - \\
+benchmark\_list & REQUIRED & - \\
+target\_ip & REQUIRED & - \\
+target\_port & REQUIRED & - \\
+setup\_id & REQUIRED & - \\
+
+\hline
+\end{tabular}
+\caption{Required json entries}
+\label{tab:json_entries_req}
+\end{center}
+\end{table}
+\newpage

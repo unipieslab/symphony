@@ -1,0 +1,41 @@
+\subsection{actions\_on\_reboot}
+
+\subsubsection{Callback signature}
+\begin{lstlisting}
+def __callback_actions_on_reboot(self) -> None
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Specifies actions that must be performed 
+when the DUT system reboots. For example, it can restore 
+the voltage stage to where it was before rebooting. 
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+No parameters are required.
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Nothing is returned
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+curr_voltage = 850 # mV
+
+def actions_on_reboot_user_defined():
+    # code ... 
+    global curr_voltage
+    restore_voltage(curr_voltage)
+
+tester = Tester_Shell() # An instance of Symphony (Host)
+tester.set_callback(
+    actions_on_reboot_user_defined, # User defined function
+    Tester_Shell_Callback.ACTIONS_ON_REBOOT # The coresponded internal callback
+    )
+\end{lstlisting}

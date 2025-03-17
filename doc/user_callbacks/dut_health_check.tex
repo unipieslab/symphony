@@ -1,0 +1,47 @@
+\subsection{dut\_health\_check}
+
+\subsubsection{Callback signature}
+\begin{lstlisting}
+def __callback_dut_health_check(self, tester: Tester_Shell) -> str
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Evaluates the health of the DUT system. It is an important 
+callback used in the internal implementation of Symphony 
+to determine when the DUT must be reset.
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+$\textbf{tester}:$ The instance of Symphony ($\textbf{Host}$). User may use 
+every forenamed build-in function to determine the health 
+of the DUT system.
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+returns an instance of the Tester_Shell_Health_Status. If 
+DUT is healthy, $\textbf{Tester\_Shell\_Health\_Status.HEALTHY}$ 
+must be returned, otherwhise 
+$\textbf{Tester\_Shell\_Health\_Status.DAMAGED}$ must be returned.
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+def check_health(tester: Tester_Shell):
+    # Determine if the DUT is healthy.
+    if (not healthy):
+        return Tester_Shell_Health_Status.DAMAGED
+
+    return Tester_Shell_Health_Status.HEALTHY
+
+tester = Tester_Shell() # An instance of Symphony (Host)
+
+tester.set_callback(
+    check_health, # user-defined
+    Tester_Shell_Callback.DUT_HEALTH_CHECK
+    )
+\end{lstlisting}

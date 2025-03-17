@@ -1,0 +1,37 @@
+\subsection{Find minimum operating voltage}
+An essential part of an undervolting experiment is to find, through experimenting, a voltage value that is the minimum voltage in which the device being undervolted is operating correctly. To save time, Symphony has a built-in function that does exactly that.
+
+\subsubsection{Function signature}
+
+\begin{lstlisting}
+def auto_undervolt_characterization(self, duration_per_bench_min: int, characterization_id: str) -> int
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true]
+$\textbf{duration\_per\_bench\_min}$: An integer representing the number 
+of minutes each benchmark should be on a specific 
+(undervolted) voltage value.
+
+$\textbf{characterization\_id}$: This field represents a string that 
+corresponds to an identification for the test.
+
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true]
+Typically returns an integer representing the value of the 
+requested voltage (aka Vmin). Otherwise, nothing is 
+returned, and the user must examine the logs to determine 
+Vmin.
+\end{lstlisting}
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+tester = Tester_Shell() # An instance of Symphony (Host)
+undervolt_cmd= "Bash command for undervolting"
+v_nominal = N # Where N is the initial voltage upon boot (in hexadecimal)
+
+res = tester.auto_undervolt_characterization(n_nominal,undervolt_cmd)  # Find the Minimum operating voltage
+\end{lstlisting}
+(\textbf{To run the above example, there are a few preliminary steps to follow. Refer to \autoref{sec:getting_started}})

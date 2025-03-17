@@ -1,0 +1,50 @@
+\subsection{undervolt\_format}
+
+\subsubsection{Callback signature}
+\begin{lstlisting}
+def __callback_unvervolt_format(self) -> str
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+This callback is exclusively used for undervolt 
+characterization, where the Symphony discovers the minimum 
+voltage value in which DUT is still operating.
+The task assigned for this callback is to give Symphony a 
+format that can be used in each step of the undervolting 
+process to reduce the voltage of the DUT system.
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+No parameters are required.
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+A string representing the next voltage value
+\end{lstlisting}
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+# For undervolting process.
+current_voltage = 850 # mV
+
+def udervolt_user_defined() -> str
+    global current_voltage
+    disired_step = 10 # mV
+    command = "apropriate command to reduce voltage" + curr_voltage
+    curr_voltage = curr_voltage - disired_step 
+
+    return command
+
+tester = Tester_Shell() # An instance of Symphony (Host)
+tester.set_callback(
+    udervolt_user_defined,
+    Tester_Shell_Callback.UNDERVOLT_FORMAT
+    )
+
+test.auto_undervolt_characterization(0.10, "UNDERVOLT_1")
+
+\end{lstlisting}

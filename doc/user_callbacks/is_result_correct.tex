@@ -1,0 +1,43 @@
+\subsection{is\_result\_correct}
+
+\subsubsection{Callback signature}
+\begin{lstlisting}
+def __callback_is_result_correct(self, result: dict) -> bool
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Checks whether a result is correct. Users 
+may implement other mechanisms to handle a wrong result in 
+addition to the check when a result is not considered 
+correct.
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+$\textbf{result}:$ The currently examined result.
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Returns $\textbf{True}$ if the examined result is considered correct, 
+otherwise $\textbf{False}$ is returned.
+\end{lstlisting}
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+def is_result_correct(result: dict):
+    # Analize the result...
+    if (correct == True):
+        retrun True
+    else:
+        return False
+
+tester = Tester_Shell() # An instance of Symphony (Host)
+
+tester.set_callback(
+    is_result_correct, # User-defined
+    Tester_Shell_Callback.IS_RESULT_CORRECT
+    )
+\end{lstlisting}

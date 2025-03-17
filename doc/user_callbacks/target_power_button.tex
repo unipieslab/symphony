@@ -1,0 +1,35 @@
+\subsection{target\_power\_button}
+
+\subsubsection{Callback signature}
+\begin{lstlisting}
+def __callback_target_power_button(self) -> None
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+This callback must be defined in such a way as to simulate 
+the press of the power button. 
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+No parameters are required.
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Nothing is returned
+\end{lstlisting}
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+def power_button() -> None:
+    # Code to simulate the press of the power button...
+
+tester = Tester_Shell() # An instance of Symphony (Host)
+tester.set_callback(
+    power_button,
+    Tester_Shell_Callback.TARGET_POWER_BUTTON
+    )
+\end{lstlisting}

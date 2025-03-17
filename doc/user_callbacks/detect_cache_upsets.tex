@@ -1,0 +1,42 @@
+\subsection{detect\_cache\_upsets}
+
+\subsubsection{Callback signature}
+\begin{lstlisting}
+def __callback_detect_cache_upsets(self, dmesg: str) -> None
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Is used to specify a way to detect cache upsets that may 
+be present in the DUT system.
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+$\textbf{dmesg}:$ The current portion of DMESG contents.
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Nothing is returned
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+class My_tester(Tester_Shell): # Sub-class of Tester_Shell (see section 8)
+    def __init__(self):
+        self.total_cache_upsets = 0
+
+    def upset_detect_user_defined(dmesg: str) -> None:
+        # Analize the dmeg...
+        self.total_cache_upsets += new_upsets
+
+tester = My_tester() # An instance of Symphony (Host)
+tester.set_callback(
+    tester.upset_dectect_user_defined, # User-defined method
+    Tester_Shell_Callback.DETECT_CACHE_UPSETS
+    )
+
+\end{lstlisting}

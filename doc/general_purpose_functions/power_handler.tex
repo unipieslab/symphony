@@ -1,0 +1,49 @@
+\subsection{power\_handler}
+
+
+\subsubsection{Function signature}
+\begin{lstlisting}
+def power_handler(self, action: Tester_Shell_Power_Action)
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Is responsible for shutting/resetting down the DUT system 
+when necessary. The User may use this routine to 
+implement custom procedures. 
+
+Although the way each system shuts down or resets is 
+almost the same, there is a variety of ways to reset 
+a system in an experiment. One way is to use 
+Raspberry PI's or UART modules combined with a relay to 
+accomplish these two actions. Because of this variance, 
+this routine requires a user-defined routine that 
+explicitly instructs how the shutdown/reset procedures can 
+be accomplished (See section set_callback).
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+$\textbf{action}$: Can receive two possible actions, 
+either to simulate the press of the power button 
+or to simulate the press of the reset button. 
+To accomplish the press of the power button, the value 
+$\textbf{TARGET\_POWER\_BTN\_PRESS}$ must be passed on the routine. 
+To accomplish the press of the reset button, the value 
+$\textbf{TARGET\_RESET\_BTN\_PRESS}$ must be passed on the routine. 
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Nothing is returned
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+tester = Tester_Shell() # An instance of Symphony (Host)
+
+tester.power_handler(Tester_Shell_Power_Action.TARGET_POWER_BTN_PRES) # Simulate the action of pressing the power button on DUT.
+
+tester.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS) # Reset (reboot) the DUT system
+\end{lstlisting}

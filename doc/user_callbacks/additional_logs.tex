@@ -1,0 +1,41 @@
+\subsection{additional\_logs}
+
+\subsubsection{Callback signature}
+\begin{lstlisting}
+def __callback_additional_logs(self) -> str
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+When Symphony's experiment_start method is called, except 
+that it controls the DUT system, it logs important 
+information about the duration of the experiment and the 
+DUT system. To discourage users from modifying the 
+internal logs, this callback is being used instead to 
+allow the user to add additional logs if they desire. 
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+No parameters are required.
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+A string representing the desired additional logs should 
+be returned.
+\end{lstlisting}
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+def my_additional_logs() -> str:
+    temp    = get_temp()
+    voltage = get_voltage()
+    return "TEMP(C):" + str(temp) + "Voltage (mV):" + str(voltage)
+
+tester = Tester_Shell() # An instance of Symphony (Host)
+tester.set_callback(my_additional_logs,
+
+
+\end{lstlisting}

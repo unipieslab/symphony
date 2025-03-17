@@ -1,0 +1,35 @@
+\subsection{update\_all}
+
+\subsubsection{Callback signature}
+\begin{lstlisting}
+def __callback_update_all(self) -> None
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Symphony updates various variables during an experiment to 
+keep track of its state. The user can use this callback to 
+define their variables to update along with the 
+internal variables. Variables are updated when there is a 
+voltage value or a benchmark.
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+No parameters are required.
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+No parameters are required.
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+tester = Tester_Shell() # An instance of Symphony (Host)
+
+tester.power_handler(Tester_Shell_Power_Action.TARGET_POWER_BTN_PRES) # Simulate the action of pressing the power button on DUT.
+
+tester.power_handler(Tester_Shell_Power_Action.TARGET_RESET_BTN_PRESS) # Reset (reboot) the DUT system
+\end{lstlisting}

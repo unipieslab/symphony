@@ -1,0 +1,52 @@
+\subsection{Experiment start}
+A monitoring routine that examines the behavior of a device is a complex and time-consuming procedure to develop. Such a routine must be able to retrieve integral information such as the following:
+\begin{itemize}
+  \item The temperature of the system.
+  \item The current-voltage value (on undervolt experiments).
+  \item Determine the overall health of the system
+  \item Possible SDCs that occurred
+\end{itemize}
+Moreover, such a routine must take action in scenarios where human interference is otherwise required. One such scenario is if the device had a kernel panic and must reset to continue the experiment. 
+
+To relieve the user from developing a routine like this, Symphony provides a built-in function that considers all the mentioned scenarios and more.
+
+\subsubsection{Function signature}
+
+\begin{lstlisting}
+def experiment_start(self)
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Monitors the DUT system for any possible 
+issues, take action when necessary, and save 
+JSON formatted files that contain data from DUT (for post-
+processing and analysis).
+
+This routine, however, requires several user-implemented 
+functions to perform with the expected behavior 
+(see section with callbacks). 
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+No parameters are required.
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Nothing is returned
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+tester = Tester_Shell() # An instance of Symphony (Host)
+
+# User-defined functions...
+# Code to make adjustments to the DUT system ... 
+
+tester.experiment_start()
+
+\end{lstlisting}
+

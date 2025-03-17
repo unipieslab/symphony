@@ -1,0 +1,74 @@
+\subsection{Interacting with the JSON}
+As mentioned, the user can interact with \textbf{Symphony} via a \textbf{JSON}, by storing the desired values in the fields listed in \autoref{tab:json_entries_req}. After the filing process, the Host parses the JSON file given by the user as input and translates it into an internal dictionary, used to conduct the experiment, based on the input information. Parsing of the JSON is performed only once.
+
+Following in this section the user will get an idea of how to use Symphony to read the corresponding JSON file of interest. 
+
+\subsection{Load from JSON}
+\subsubsection{Function signature}
+
+\begin{lstlisting}
+def load_experiment_attr_from_json_file(self, src: str)
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Read the contents of the $\textbf{JSON}$, specified in $\textbf{src}$, 
+and store them in an internal dictionary. 
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+$\textbf{src}$: The JSON file from which the entries are to be loaded
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Nothing is returned
+\end{lstlisting}
+
+\newpage
+\subsubsection{Usage Example}
+\begin{lstlisting}
+tester = Tester_Shell() # An instance of Symphony (Host)
+
+json_file = "example.json" # The JSON that holds the entries
+tester.load_experiment_attr_from_json_file(json_file)
+\end{lstlisting}
+
+
+\subsection{Load from Dictionary}
+\subsubsection{Function signature}
+
+\begin{lstlisting}
+def load_experiment_attr_from_dict(self, src: dict)
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Read the contents of a $\textbf{Dicitonary}$, specified in $\textbf{src}$, 
+and store them in an internal dictionary. 
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+$\textbf{src}$: The Dictionary from which the entries are to be 
+loaded
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Nothing is returned
+\end{lstlisting}
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+tester = Tester_Shell() # An instance of Symphony (Host)
+
+entries = {
+    "effective_time_per_batch_s": null,
+    "finish_after_total_effective_min": null,
+    "finish_after_total_errors": null,
+    ... # The rest of the entries
+} # The dictionary that holds the entries
+tester.load_experiment_attr_from_dict(entries)
+\end{lstlisting}

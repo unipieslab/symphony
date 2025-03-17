@@ -1,0 +1,41 @@
+\subsection{request\_voltage\_value}
+
+\subsubsection{Callback signature}
+\begin{lstlisting}
+def __callback_unvervolt_format(self) -> str
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Must return the current voltage value of the regulator in 
+the DUT system.
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+No parameters are required.
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+A string representing the voltage value
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+
+# For undervolting process.
+current_voltage = 850 # mV
+
+def voltage_value_user_defined() -> str
+    # Code that retrives the voltage value from DUT...
+    return voltage_value
+
+tester = Tester_Shell() # An instance of Symphony (Host)
+tester.set_callback(
+    voltage_value_user_defined,
+    Tester_Shell_Callback.REQUEST_VOLTAGE_VALUE
+    )
+
+\end{lstlisting}

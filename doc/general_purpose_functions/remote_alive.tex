@@ -1,0 +1,44 @@
+\subsection{remote\_alive}
+
+\subsubsection{Function signature}
+\begin{lstlisting}
+def remote_alive(self, net_timeout_s: int, ret_imediate: bool) -> bool
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Check whether the DUT system is down. In case of any 
+(communication-related) error that may encountered during 
+the execution of the requested command, there will be 
+attempts to finish the execution. If three attempts of 
+execution have been attempted, then, the DUT
+is ordered to do a hard reset.
+\end{lstlisting}
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+
+$\textbf{net\_timeout\_s}$: Represents the expected delay due to the 
+network infrastructure in seconds. Users may choose their 
+value of preference, but Symphony offers the built-in 
+constant value $\textbf{NETWORK\_TIMEOUT\_SEC}$, which can be used 
+instead.  
+
+$\textbf{ret\_imidiate}$: Represents a logical value that allows the 
+users to force the routine to return immediately after 
+encountering any (communication-related) error.
+
+\end{lstlisting}
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Either $\textbf{True}$, in case the DUT is up, or 
+$\textbf{False}$ in case it is down.
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+tester = Tester_Shell() # An instance of Symphony (Host)
+
+tester.remote_alive(Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, False) # Check whether the DUT system is visible on the network.
+\end{lstlisting}

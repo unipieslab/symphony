@@ -1,0 +1,61 @@
+\subsection{remote\_execute}
+
+\subsubsection{Function signature}
+\begin{lstlisting}
+def remote_execute(self, cmd: str, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int, ret_imediate: bool) -> list:
+\end{lstlisting}
+
+\subsubsection{Description}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}, showstringspaces=false]
+Executes user-requested bash commands to the DUT system. 
+In case of any (communication-related) error that may 
+encountered during the execution of the requested command, 
+there will be attempts to finish the execution. If three 
+attempts of execution have been attempted, then, the DUT 
+is ordered to do a hard reset. 
+\end{lstlisting}
+
+\subsubsection{Parameters}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+$\textbf{cmd}$: Represents a string that is the command to execute
+$\textbf{cmd\_timeout\_s}$: An integer representing the expected number 
+of seconds it takes from DUT to execute the requested 
+command. Timeouts like this can be estimated using the 
+routine "estimate_timeouts" (see section)
+$\textbf{net\_timeout\_s}$: Represents the expected delay due to the
+network infrastructure in seconds. Users may choose their
+value of preference, but Symphony offers the built-in
+constant value $\textbf{NETWORK\_TIMEOUT\_SEC}$, which can be used
+instead.
+
+$\textbf{dmesg\_index}$: This parameter represents an integer that 
+specifies the position where the last command left the 
+dmesg file. The user may use this function with$\textbf { dmesg = 0}$, 
+as the genuine usage of this parameter matters only in the 
+internal implementation of the symphony.
+
+$\textbf{times}$: An integer representing the number of times the DUT 
+system must execute the requested command. 
+
+$\textbf{ret\_imediate}$: Represents a logical value that allows the
+users to force the routine to return immediately after
+encountering any (communication-related) error.
+\end{lstlisting}
+
+
+\subsubsection{Returns}
+\begin{lstlisting}[mathescape=true, keywordstyle=\color{black}]
+Returns a list holding the results of the requested 
+command. The list contains an element number equal to the 
+number of times the requested command was executed. 
+\end{lstlisting}
+
+
+\subsubsection{Usage Example}
+\begin{lstlisting}
+tester = Tester_Shell() # An instance of Symphony (Host)
+ls_cmd_timetout = 2 # seconds
+
+tester.remote_execute("ls", ls_cmd_timeout, Tester_Shell_Constants. NETWORK_TIMEOUT_SEC.value, 0, 2, False)
+
+\end{lstlisting}

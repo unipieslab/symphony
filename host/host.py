@@ -204,17 +204,85 @@ class Tester_Shell:
         self.__benchmark_unique_id: str = ""
 
         # Callbacks to be implemented
+        """
+            Checks whether a result is correct. Users
+            may implement other mechanisms to handle a wrong result in
+            addition to the check when a result is not considered
+            correct.
+        """
         self.__callback_is_result_correct: function       = lambda result: False|True
+
+        """
+            Is used to specify a way to detect cache upsets that may
+            be present in the DUT system.
+        """
         self.__callback_detect_cache_upsets: function     = lambda dmesg: None
+
+        """
+            This callback must be defined in such a way as to simulate
+            the press of the reset button.
+        """
         self.__callback_target_reset_button: function     = lambda: None
+
+        """
+            This callback must be defined in such a way as to simulate
+            the press of the power button.
+        """
         self.__callback_target_power_button: function     = lambda: None
+
+        """
+            This callback can be used to monitor the DUT system's
+            resources, for example, to retrieve the temperature. Is
+            possible to use this callback in combination with other
+            callbacks.
+        """
         self.__callback_dut_monitor: function             = lambda healthlog: None
+
+        """
+            When Symphony's experiment_start method is called,it logs 
+            important information about the duration of the experiment 
+            and the DUT system. This callback is used instead to
+            allow the user to add additional logs (if required).
+        """
         self.__callback_additional_logs: function         = lambda: str
+
+        """
+            Symphony updates various variables during an experiment to
+            keep track of its state. The user can use this callback to
+            define their variables to update along with the internal variables. 
+            Variables are updated when there is a voltage value or a benchmark.
+        """
         self.__callback_update_all: function              = lambda: None
+
+        """
+            Specifies actions that must be performed
+            when the DUT system reboots. For example, it can restore
+            the voltage stage to where it was before rebooting.
+        """
         self.__callback_actions_on_reboot: function       = lambda: None
-        self.__callback_request_voltage_value: function   = lambda: str # TODO - returns a string which represent the current voltage value (undervolt characterization specific)
-        self.__callback_unvervolt_format: function        = lambda tester: str # TODO - returns a string which the next voltage (step), in the right format  (undervolt characterization specific)
+
+        """
+            Must return the current voltage value of the regulator in the DUT system.
+        """
+        self.__callback_request_voltage_value: function   = lambda: str 
+
+        """
+            This callback is exclusively used for undervolt
+            characterization, where the Symphony discovers the minimum
+            voltage value in which DUT is still operating.
+            The task assigned for this callback is to give Symphony a
+            format that can be used in each step of the undervolting
+            process to reduce the voltage of the DUT system.
+        """
+        self.__callback_unvervolt_format: function        = lambda tester: str 
+
+        """
+            Evaluates the health of the DUT system. It is an important
+            callback used in the internal implementation of Symphony
+            to determine when the DUT must be reset
+        """
         self.__callback_dut_health_check: function        = lambda tester: Tester_Shell_Health_Status
+
         # Debug flags.
         self.__debug_disable_resets: bool = False
         self.__debug_disable_state: bool  = False
@@ -548,11 +616,24 @@ class Tester_Shell:
 
     def remote_alive(self, net_timeout_s: int, ret_imediate: bool) -> bool:
         """
-            This function verifies if the machine running the experiment is 
-            connected and functional. It takes two parameters:
+            Check whether the DUT system is down. In case of any
+            (communication-related) error that may encountered during
+            the execution of the requested command, there will be
+            attempts to finish the execution. If three attempts of
+            execution have been attempted, then, the DUT
+            is ordered to do a hard reset.
 
-            @param net_timeout_s: This defines a predefined threshold (in seconds) 
-                                  for waiting for a network response from the target machine.
+            @param net_timeout_s Represents the expected delay due to the
+            network infrastructure in seconds. Users may choose their
+            value of preference, but Symphony offers the built-in
+            constant value NETWORK_TIMEOUT_SEC, which can be used
+            instead.
+
+            @param ret_imidiate: Represents a logical value that allows the
+            users to force the routine to return immediately after
+            encountering any (communication-related) error.
+
+            @returns Either True, in case the DUT is up, or False in case it is down.
         """
         conn = self.__target_connect_common(net_timeout_s, net_timeout_s, ret_imediate)
         alive: bool = False
@@ -573,12 +654,39 @@ class Tester_Shell:
 
     def remote_execute(self, cmd: str, cmd_timeout_s: int, net_timeout_s: int, dmesg_index: int, times: int, ret_imediate: bool) -> list:
         """
-            @param cmd
-            @param cmd_timeout_s
-            @param net_timeout_s
-            @param dmesg_index
-            @param times
-            @param ret_imediate
+            Executes user-requested bash commands to the DUT system.
+            In case of any (communication-related) error that may
+            encountered during the execution of the requested command,
+            there will be attempts to finish the execution. If three
+            attempts of execution have been attempted, then, the DUT
+            is ordered to do a hard reset.
+
+            @param cmd Represents a string that is the command to execute.
+
+            @param cmd_timeout_s An integer representing the expected number
+            of seconds it takes from DUT to execute the requested
+            command. Timeouts like this can be estimated using the
+            routine "estimate_timeouts" (see section).
+
+            @param net_timeout_s Represents the expected delay due to the
+            network infrastructure in seconds. Users may choose their value 
+            of preference, but Symphony offers the built-in constant value 
+            NETWORK_TIMEOUT_SEC, which can be used instead.
+
+            @param dmesg_index This parameter represents an integer that
+            specifies the position where the last command left the
+            dmesg file. The user may use this function with dmesg = 0.
+
+            @param times An integer representing the number of times the DUT
+            system must execute the requested command.
+
+            @param ret_imediate Represents a logical value that allows the
+            users to force the routine to return immediately after
+            encountering any (communication-related) error
+
+            @returns Returns a list holding the results of the requested
+            command. The list contains an element number equal to the
+            number of times the requested command was executed.
         """
         alive = self.remote_alive(net_timeout_s, ret_imediate)
         if (not alive and ret_imediate == True):
@@ -618,11 +726,34 @@ class Tester_Shell:
                     execution_attempt_counter += 1
 
     def simple_remote_execute(self, cmd: str, times: int, ret_imediate: bool) -> list:
+        """
+            Is a simpler version of the corresponding remote_execute
+            routine. The only difference between these two routines is
+            that the simple_remote_execute routine requires fewer
+            parameters than remote_execute does, making it easier to
+            use in some cases where the extra parameters are
+            redundant, like executing a command whose execution time
+            is only a few seconds. If three attempts of execution have
+            been attempted, then, the DUT is ordered to do a hard reset.
+
+            @param cmd Represents a string that is the command to execute.
+
+            @param times An integer representing the number of times the DUT
+            system must execute the requested command.
+
+            @param ret_imediate Represents a logical value that allows the
+            users to force the routine to return immediately after
+            encountering any (communication-related) error.
+
+            @return A list holding the results of the requested command. The list contains an 
+            element number equal to the number of times the requested command was executed
+        """
         return self.remote_execute(cmd, Tester_Shell_Constants.TIMEOUT_SIMPLE_EXECUTION.value, 
                                    Tester_Shell_Constants.NETWORK_TIMEOUT_SEC.value, 0, times, ret_imediate)
 
     def target_set_next_voltage(self) -> bool:
         """
+            
         """
         curr_vid_index = self.__voltage_list.index(self.__current_voltage_id)
         next_vid_index = curr_vid_index + 1
@@ -652,7 +783,10 @@ class Tester_Shell:
 
     def load_experiment_attr_from_dict(self, src: dict):
         """
-            @param src
+            Read the contents of a Dicitonary, specified in src,
+            and store them in an internal dictionary.
+
+            @param src The Dictionary from which the entries are to be loaded.
         """
         try:
             self.__voltage_commands   = src["voltage_commands"] 
@@ -692,11 +826,25 @@ class Tester_Shell:
         self.__update()
 
     def load_experiment_attr_from_json_file(self, src: str):
+        """
+            Read the contents of the JSON, specified in src,
+            and store them in an internal dictionary.
+
+            @param src The JSON file from which the entries are to be loaded.
+        """
         with open(src) as json_file:
             json_content: dict = json.load(json_file)
             self.load_experiment_attr_from_dict(json_content)
 
     def target_perform_undervolt_test(self):
+        """
+            Performs an undervolted experiment for some
+            minutes, specified in the JSON. This routine makes the
+            undervolting process and benchmark execution easy and automatic.
+
+            This routine, however, requires several user-implemented
+            functions to perform with the expected behavior.
+        """
         logging.warning("Start the undervolting process for: " + self.__target_ip)
 
         self.__target_set_voltage()
@@ -728,16 +876,19 @@ class Tester_Shell:
             logging.warning("Enable state restore/saves")
 
     def power_handler(self, action: Tester_Shell_Power_Action):
-        """
-            This function uses an abstract methodology to achieve power and reset button 
-            functionality in an experiment. 
-            The specific actions for these buttons are not defined
-            here but rather in subclasses. In order for this to work, 
-            subclasses must implement the following functions:
+        """ 
+            Is responsible for shutting/resetting down the DUT system
+            when necessary. The User may use this routine to
+            implement custom procedures.
+
+            Although the way each system shuts down or resets is
+            almost the same, there is a variety of ways to reset
+            a system in an experiment.
+
+            In order for this to work, the following callbacks 
+            must be implemented:
                 - __callback_target_power_button (Optional)
                 - __callback_target_reset_button
-
-            @param action
         """
         if self.__debug_disable_resets == True:
             return
@@ -772,7 +923,16 @@ class Tester_Shell:
 
     def auto_undervolt_characterization(self, duration_per_bench_min: int, characterization_id: str) -> int:
         """
-            @param duration_per_bench_min
+            
+
+            @param duration_per_bench_min An integer representing the number of minutes 
+            each benchmark should be on a specific (undervolted) voltage value.
+
+            @param characterization_id This field represents a string that
+            corresponds to an identification for the test.
+
+            @return Typically returns an integer representing the value of the requested voltage (aka Vmin). 
+            Otherwise, nothing is returned, and the user must examine the logs to determine Vmin.
         """
         logging.warning("Trying to restore to the previous state, please make sure that\
                         the previously saved state was related to undervolt characterization and not from the experiment.")
@@ -821,6 +981,15 @@ class Tester_Shell:
             self.__current_benchmark_id = self.__benchmark_list[0]
 
     def experiment_start(self):
+        """
+            Monitors the DUT system for any possible
+            issues, take action when necessary, and save
+            JSON formatted files that contain data from DUT (for post-processing and analysis).
+            
+            This routine, however, requires several user-implemented
+            functions to perform with the expected behavior
+        """
+
         logging.info('Starting... Benchmark: ' + self.__current_benchmark_id)
 
         error_consecutive: int = 0
@@ -871,8 +1040,18 @@ class Tester_Shell:
 
     def set_callback(self, callback_func, callback_id: Tester_Shell_Callback):
         """
-            @param callback_func 
-            @param callback_id
+            Assigns a user-defined routine to an internal routine used
+            for actions like resetting or monitoring the DUT. These
+            actions can't be implemented in a way that works in every
+            implementation and DUT system. Thus, the user must
+            implement it for the specific scenario at hand.
+
+            @param callback_func Represents a function pointer pointing 
+            to the user-defined function of interest.
+
+            @param callback_id Specifies which internal routine to replace
+            with the user-defined routine (see section for the list of
+            internal routines available for modification).
         """
         if (not isinstance(callback_id, Tester_Shell_Callback)):
             logging.error("Error cause: " + str(callback_id))
@@ -930,20 +1109,46 @@ class Tester_Shell:
 
     @property
     def current_benchmark_id(self) -> str:
+        """
+            Get's the name of the currently executing benchmark.
+
+            @returns The benchamrk ID of the executing benchmark.
+        """
         return self.__current_benchmark_id
     
     @property
     def current_voltage_id(self) -> str:
+        """
+            Get's the name of the currently applied. voltage.
+
+            @returns The votlage ID of the applied voltage.
+        """
         return self.__current_voltage_id
     
     @property
     def bechmark_unique_id(self) -> str:
+        """
+            Get's a unique ID that represents the currently
+            excuting benchmark.
+
+            @returns The unique ID of the executing benchmark.
+        """
         return self.__benchmark_unique_id
 
     @property
     def target_ip(self) -> str:
+        """
+            Get's the IP address of the target device.
+
+            @returns The IP address.
+        """
         return self.__target_ip
     
     @property
     def target_port(self) -> str:
+        """
+            Get's the PORT number of the target device.
+
+            @returns The port number
+        """
         return self.__target_port
