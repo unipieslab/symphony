@@ -1,11 +1,18 @@
-## We need to make a better readme file.
+## DUT
 
-The dut.py need to run as a servive
+The DUT is a service running in the target that will capture any essential information for the experiment. It is designed to run in Linux hosts.
 
-To do so, follow the stepts below:
+In order to setup Symphony, the dut.py need to run as a servive in the target.
+The servie file is `rpyc.service` in the `services` directory.
 
-cp services/rpyc.service /etc/systemd/system/
+> *Do not forget to adjust the `ExecStart` path in `rpyc.service` to match your installation folder in the target*
 
-and run the script update_service.sh
+To do so, copy the service file in the systemd directory
+
+> `cp services/rpyc.service /etc/systemd/system/`
+
+and run the script 
+
+> `./update_service.sh`
 
 
