@@ -6,7 +6,7 @@ TCP/IP server/client framework to orchestrate the execution of benchmarks on a t
 
 This is a project to automate the process of testing benchmarks at different voltages. It includes classes and methods to manage the test process, collect and save results, and handle errors.
 
-![Figure 1](docs/figs/architecture.png)
+![Figure 1](docs/figs/Architecture.png)
 
 In the `/docs` directory you can find information about the internal functions of Symphony and their usage
 
