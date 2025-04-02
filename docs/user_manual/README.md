@@ -13,11 +13,11 @@ The Sympohy’s API provides the following basic functionalities for radiation e
 
 ## Architecture 
 Symphony’s architecture uses the Client-Server network model. As the model suggests, it uses the network infrastructure to establish a connection between two systems, one located inside the radiation room, called Device Under Test (DUT), and the other that controls the DUT device from outside, called Host. The Host is responsible for the client-side operations, while the DUT is responsible for the server side.
-![Figure 1](symphony/docs/figs/architecture.png)
+![Figure 1](figs/architecture.png)
 The architecture of Symphony can be depicted in Figure 1. As illustrated in Figure 1, the Host and DUT are connected using a gateway router. Another detail spotted in the figure is an entity called "LOGIC" and "CALLBACK" both clarified later in this sentence. Logic constitutes hardware responsible for performing a hard reset on the DUT system. Callback, if we overuse the original terminology, it can be called a "driver". This callback instructs Symphony to perform a hard reset, when necessary, using the so-called "LOGIC" hardware in between. The driver (a.k.a. callback) is user-defined and varies between implementations. 
 
 ## Device Under Test
-![Figure 2](symphony/docs/figs/result_message.png)
+![Figure 2](figs/result_message.png)
 As depicted in Figure 2, the DUT is located inside the experiment room. This device is responsible for executing any command requested from the Host. Another task is to send back, through the network infrastructure, the results of the executed commands. The message that contains the result is in a specified dictionary format, shown in Figure 2.
 
 ## Getting started 
