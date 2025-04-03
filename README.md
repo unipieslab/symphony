@@ -53,7 +53,7 @@ Once these steps are successfully completed, Symphony and all its dependencies w
 Navigate to `host` folder and run `createVenv.sh`
 
 ```
-$ cd host
+$ cd target
 $./createVenv.sh
 ```
 
